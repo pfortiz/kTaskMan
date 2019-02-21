@@ -1,0 +1,625 @@
+#!/usr/bin/python
+
+#  Script to handle the help and argument description of AP_runPipeline
+#  I need to import the python app ozArgs.py into here
+#
+#   Author: Patricio F. Ortiz
+#   Date:   February 15, 2019
+
+
+import sys
+import os.path
+import datetime
+
+sys.path.append("essentials")
+
+import ozArgs
+
+__name__ = "help_runPipeline"
+
+nargs = len(sys.argv)
+if nargs == 1:
+    print "Usage {} command|script".format(__name__)
+    sys.exit()
+
+
+whatToDo = sys.argv[1]
+
+theArgs = {}
+
+if whatToDo == "command":
+
+    cla = ozArgs.methods("main",theArgs)
+    theArgs["main"] = cla
+    
+    cla.addMandatoryField("pipe-file","file_name", "string",
+            "File with the pipeline instructions")
+    cla.addMandatoryField("date-string","YYYY-mm-dd[:YYYY-MM-DD]", "string",
+            "String to specify initial and final dates",
+            eg="YYYY-mm-dd[:YYYY-MM-DD]")
+    cla.addOptionalField("-exec","execute", "string",
+            "Work in execute mode, ie, do things")
+    cla.addOptionalField("-slave","slave", "string",
+            "Run in slave mode")
+    cla.addOptionalField("-verify","verify", "string",
+            "Run heavy verifications")
+    cla.addOptionalField("-help","help", "string",
+            "Show help for AP_runPipeline")
+    cla.addOptionalKV("-runid","Process-identifier", "string",
+        "Special identifier for the run")
+    cla.addOptionalKV("-walltime","walltime_in_hours", "float",
+        "Walltime for HPC performance")
+    cla.addOptionalKV("-maxmen","memory-size-in-MB", "float",
+        "Memory upper limit for HPC performance")
+    cla.addOptionalKV("VARIABLE_NAME","variable_value", "string",
+        "Any number of global variables definitions")
+
+    cla.addLabel("AP_runPipeline")
+    cla.shortHelp("AP_runPipeline")
+#    cla.shortHelp("main")
+
+elif whatToDo == "script":
+    scArgs = {}
+    oargs = []
+
+##  Queue related functions
+    item = "HPC-related"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.asComment("HPC submission related operations")
+
+##    if($kind eq "parallel" or $kind eq "qsub"){
+    item = "qsub"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Submit command(s) for execution in an HPC system (qsub stands for\n     queue submit)")
+    sca.addMandatoryField("mode","mode", "string",
+        "strategy to run the pipeline",
+        pv=[["WAIT", "next step is executed only when command is executed", ""],
+            ["NOWAIT", "next steps are executed immediately", ""],
+            ])
+    sca.addMandatoryField("command","file_name", "string",
+            "Command to execute plus its arguments. ")
+    sca.addOptionalField("additional-commands","file_name", "string",
+            "Another command to execute plus its arguments. Use a ';' to separate commands. ",
+            example="{} NOWAIT doFTP1 ; doFTP2".format(item))
+#    item = "parallel"
+#    sca = ozArgs.methods(item, scArgs)
+#    scArgs[item] = sca
+#    oargs.append(item)
+#    sca.addDescription("executes a command ALWAYS")
+#    sca.addMandatoryField("command","file_name", "string",
+#            "Command to execute plus its arguments. Redirection is allowed",
+#            example="{} LATITUDE 0.5".format(item))
+
+##    ] elsif($kind eq "addtowalltime")[
+    item = "addtowalltime"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("modify the maximum execution time by adding a value")
+    sca.addMandatoryField("delta","delta", "float",
+            "Increment to modify the wall-time in [hours]",
+            example="addtowalltime 0.5")
+
+##    ] elsif($kind eq "scalewalltime")[
+    item = "scalewalltime"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("scales the maximum execution time (wall-time) up for next execution in HPC")
+    sca.addMandatoryField("scaleFactor","scaleFactor", "float",
+            "Scale walltime by scaleFactor for future submissions",
+            example="scalewalltime 1.5")
+
+##  Queue related functions
+    item = "Execution-related"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.asComment("Execution related operations")
+
+##    ] elsif($kind eq "exec")[
+    item = "exec"
+    oargs.append(item)
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    sca.addDescription("executes a command ALWAYS")
+    sca.addMandatoryField("command","file_name", "string",
+            "Command to execute plus its arguments. Redirection is allowed",
+            example="{} unlink file-name".format(item))
+
+##    ] elsif($kind eq "sexec")[
+    item = "sexec"
+    oargs.append(item)
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    sca.addDescription("executes a command if in -exec mode")
+    sca.addMandatoryField("command","file_name", "string",
+            "Command to execute plus its arguments. Redirection is allowed",
+            example="{} rm file-name".format(item))
+
+##    ] elsif($kind eq "local-bg")[
+    item = "local-bg"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("invokes the shell to execute a file in the background")
+    sca.addMandatoryField("mode","mode", "string",
+            "Mode to denote whether to wait or not for the execution to stop",
+            pv=[["WAIT", "Wait for the command to finish", ""],
+                ["NOWAIT", "Go to the next task immediately", ""] ])
+    sca.addMandatoryField("fileName","file_name", "string",
+            "File containing commands to be executed in sequence.",
+            example="{} mode file-name".format(item) )
+
+##    ] elsif($kind eq "local-bash")[
+    item = "local-bash"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("invokes the shell to execute a file in the foreground")
+    sca.addMandatoryField("fileName","file_name", "string",
+            "File containing commands to be executed in sequence.",
+            example="{} file-name".format(item) )
+
+##  Flow control
+    item = "flowControl-related"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.asComment("Flow control related operations")
+
+##    ] elsif($kind eq "label" or $kind eq "milestone")[
+    item = "label"
+    oargs.append(item)
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    sca.addDescription("Creates a label for flow control purposes. See goto.")
+    sca.addMandatoryField("label-name","label-name", "string",
+            "The name of the label",
+            example="label OPEN_THE_FILE_NOW")
+    item = "milestone"
+    oargs.append(item)
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    sca.addDescription("Creates a label for flow control purposes. See goto.")
+    sca.addMandatoryField("label-name","label-name", "string",
+            "The name of the label",
+            example="milestone START_PART_TWO")
+
+##    ] elsif($kind eq "goto" or $kind eq "skipto")[
+    item = "goto"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Flow control element which transfers the execution to the specified labelID")
+    sca.addMandatoryField("label","label_name", "string",
+            "Identifier of the label to which flow will be past.",
+            example="{} OPEN_THE_FILE_NOW".format(item))
+    item = "skipto"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Flow control element which transfers the execution to the specified labelID")
+    sca.addMandatoryField("label","label_name", "string",
+            "Identifier of the label to which flow will be past.",
+            example="{} START_PART_TWO".format(item))
+
+##    ] elsif($kind eq "if" and lc($lastWord) eq "then")[ 
+    item = "if"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Conditional flow control to compare values. If the condition is not satisfied, flow control passes to the nearest ELSEIF or ELSE, and if none is present, the flow passes to the location of the ENDIF.")
+    sca.addMandatoryField("E_1","element1", "string",
+            "Element to compare, eg, a Variable")
+    sca.addMandatoryField("comparator","comparator", "string",
+            "A valid comparator",
+            pv=[["eq", "The elements are the same",""],
+                ["ne", "The elements are different (according to Perl rules)",""],
+                ["le", "E_1 is less or equal to E_2", ""],
+                ["lt", "E_1 is less than E_2", ""],
+                ["ge", "E_1 is greater or equal to E_2", ""],
+                ["gt", "E_1 is greater than E_2", ""],
+                ["exist", "E_1 is a file in the system", ""],
+                ["exists", "E_1 is a file in the system", ""],
+                ["existsnot", "E_1 is not a file in the system", ""],
+                ["missing", "E_1 is not a file in the system", ""],
+                ["noexist", "E_1 is not a file in the system", ""],
+                ["empty", "E_1 is an empty file in the system ", ""],
+                ["!empty", "E_1 is an file in the system which contains data", ""],
+                ["in", "E_1, as a pattern is found in file E_2", ""],
+                ["not-in", "E_1, as a pattern is not found in file E_2", ""],
+            ],
+            example="elsif LONGITUDE gt 60 then",
+            )
+    sca.addMandatoryField("E_2","element2", "string",
+            "Element to compare against, eg, a fix value or a file name")
+    sca.addOptionalField("logical","Logical", "string",
+            "Logical operator to join comparisons, evaluated from left to right",
+            pv=[
+                ["AND", "Logical AND operator", ""],
+                ["OR", "Logical AND operator", ""],
+                ],
+            example="elsif a eq 2 OR b < 5 then",
+            )
+    sca.addMandatoryField("then","then", "string",
+            "Closing word of this statement. It must be present")
+#    item = "xxx"
+#    sca = ozArgs.methods(item, scArgs)
+#    scArgs[item] = sca
+#    oargs.append(item)
+#    sca.addDescription("executes a command ALWAYS")
+#    sca.addMandatoryField("command","file_name", "string",
+#            "Command to execute plus its arguments. Redirection is allowed",
+#            example="{} LATITUDE 0.5".format(item))
+
+##    ] elsif($kind eq "elseif" and lc($lastWord) eq "then")[ 
+    item = "elseif"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("IF flow control to introduce another option")
+    sca.addMandatoryField("E_1","element1", "string",
+            "Element to compare, eg, a Variable")
+    sca.addMandatoryField("comparator","comparator", "string",
+            "A valid comparator",
+            pv=[["eq", "The elements are the same",""],
+                ["ne", "The elements are different (according to Perl rules)",""],
+                ["le", "E_1 is less or equal to E_2", ""],
+                ["lt", "E_1 is less than E_2", ""],
+                ["ge", "E_1 is greater or equal to E_2", ""],
+                ["gt", "E_1 is greater than E_2", ""],
+                ["exist", "E_1 is a file in the system", ""],
+                ["exists", "E_1 is a file in the system", ""],
+                ["existsnot", "E_1 is not a file in the system", ""],
+                ["missing", "E_1 is not a file in the system", ""],
+                ["noexist", "E_1 is not a file in the system", ""],
+                ["empty", "E_1 is an empty file in the system ", ""],
+                ["!empty", "E_1 is an file in the system which contains data", ""],
+                ["in", "E_1, as a pattern is found in file E_2", ""],
+                ["not-in", "E_1, as a pattern is not found in file E_2", ""],
+            ],
+            example="elsif LONGITUDE gt 60 then",
+            )
+    sca.addMandatoryField("E_2","element2", "string",
+            "Element to compare against, eg, a fix value or a file name")
+    sca.addOptionalField("logical","Logical", "string",
+            "Logical operator to join comparisons, evaluated from left to right",
+            pv=[
+                ["AND", "Logical AND operator", ""],
+                ["OR", "Logical AND operator", ""],
+                ],
+            example="elsif a eq 2 OR b < 5 then",
+            )
+    sca.addMandatoryField("then","then", "string",
+            "Closing word of this statement. It must be present")
+#            example="{} LATITUDE 0.5".format(item))
+
+##    ] elsif($kind eq "else")[ 
+    item = "else"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Else statement part of an if-then / elseif /else block")
+#    sca.addMandatoryField("command","file_name", "string",
+#            "Command to execute plus its arguments. Redirection is allowed",
+#            example="{} LATITUDE 0.5".format(item))
+
+##    ] elsif($kind eq "endif")[ 
+    item = "endif"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("End statement of an if-then / elseif /else block")
+
+##    ] elsif($kind eq "loop")[
+    item = "loop"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Starts a defined loop which must end with 'endloop'")
+    sca.addMandatoryKV("var","VAR-NAME", "string",
+            "Loop variable name.")
+    sca.addMandatoryKV("from","FIRST_INDEX", "string",
+            "First value for the loop variable.")
+    sca.addMandatoryKV("to","LAST_INDEX", "string",
+            "Last value for the loop variable.")
+    sca.addOptionalKV("inc","delta", "string",
+            "value the loop variable changes from one loop to the next. It can be positive or negative.",  default=1)
+
+##    ] elsif($kind eq "foreach")[
+    item = "foreach"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Starts a loop through a list of values. It must end with 'endloop'")
+    sca.addMandatoryField("in","in", "string",
+            "The name of variable containing a list or a list of items.",
+            example="{} in LISTOFDAYS".format(item))
+
+##    ] elsif($kind eq "endloop" or $kind eq "pool")[
+    item = "endloop"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("closes a defined loop started with loop")
+    item = "pool"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("closes a defined loop started with loop")
+
+#    ] elsif ($kind eq "cycle" or $kind eq "next")[ # into a task
+    item = "cycle"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Skip lines between this point and the end of a loop")
+
+    item = "next"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Skip lines between this point and the end of a loop")
+
+##    ] elsif ($kind eq "break")[
+    item = "break"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Flow control: jumps out of a loop")
+
+##  Execution control
+    item = "Execution control"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.asComment("Execution  control operations")
+
+##    ] elsif($kind eq "sleep")[
+    item = "sleep"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Stops the execution of the pipeline for a while")
+    sca.addMandatoryField("nSeconds","nSeconds", "float",
+            "Number of seconds for the pipeline to 'sleep'",
+            example="{} 5".format(item))
+
+##    ] elsif($kind eq "awaitfor")[ # still to be tested...
+    item = "awaitfor"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Holds the execution until all files exist")
+    sca.addMandatoryField("file(s)","file_name", "string",
+            "List of files (one or more) which must exist to continue",
+            example="{} /path/to/file1 /path/to/file2".format(item))
+
+##    ] elsif ($kind eq "terminate" or ($kind eq "kill") or ($kind eq "stop"))[
+    item = "terminate"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Terminates the execution completely, leaving a trace in the log file")
+
+    item = "kill"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Terminates the execution completely, leaving a trace in the log file")
+
+    item = "stop"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Terminates the execution completely, leaving a trace in the log file")
+
+##  variable handling
+    item = "variables"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.asComment("Variable related operations")
+
+##    ] elsif($kind eq "assignto" or $kind eq "define")[
+    item = "assignto"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Assigns a certain value to a variable")
+    sca.addMandatoryField("varName","variable-name", "string",
+            "The name of a variable")
+    sca.addMandatoryField("action","what to assign", "string",
+            "Indicates what to assign", 
+            pv=[["value", "assign a fixed value to a variable", "", ["value"]],
+                ["fileSize", "assing the size the file pointed by the next argument", "", ["fileName"]],
+                ["command","a unix command", "", ["unixCommand"]],
+                ["list", "Assign the following arguments to a list", "",["aList"]],
+                ["list-from-file", "Assign the lines of a file as a list","", ["fileName"]],
+                ["split","'String pattern ordinal' takes the 'ordinal' part of 'string' split by 'pattern'", "", ["splits"]],
+                ])
+    sca.addOptionalField("value","value", "string",
+            "value to assign to the variable")
+    sca.addOptionalField("fileName","full-path", "string",
+            "Full path for a file to use with fileSize or list-from-file")
+    sca.addOptionalField("unixCommand","value", "string",
+            "Unix command and its arguments to assign to the variable",
+            example="{} PROCEDURES command ps -fea".format(item))
+    sca.addOptionalField("aList","value", "string",
+            "List of values to assign to the variable",
+            example="{} CARDINALS list NORTH EAST SOUTH WEST".format(item))
+    sca.addOptionalField("splits","list of values", "string",
+            "String ordinal pattern",
+            example="{} DAYLY split DATE 3 _".format(item))
+
+##    ] elsif($kind eq "addto" or $kind eq "+=")[
+    item = "addto"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Modify a variable by adding to its value")
+    sca.addMandatoryField("variableName","value", "string",
+            "Name of the variable to be modified")
+    sca.addMandatoryField("value","value", "float",
+            "Value to be added to a variable ",
+            example="{} LATITUDE 0.5".format(item))
+
+##    ] elsif($kind eq "multiplyby" or $kind eq "*=")[
+    item = "multiplyby"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Modify a variable by multiplying it by value")
+    sca.addMandatoryField("variableName","value", "string",
+            "Name of the variable to be modified")
+    sca.addMandatoryField("value","value", "float",
+            "Value by which a variable is multiplied",
+            example="{} LENGTH 2.5".format(item))
+
+##    ] elsif($kind eq "divideby" or $kind eq "/=")[
+    item = "divideby"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Modify a variable by dividing it by value")
+    sca.addMandatoryField("variableName","value", "string",
+            "Name of the variable to be modified")
+    sca.addMandatoryField("value","value", "float",
+            "Value by which a variable is divided",
+            example="{} LENGTH 1.5".format(item))
+
+##  Communication
+    item = "Communication"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.asComment("Messaging operations")
+
+##    ] elsif($kind eq "echo")[
+    item = "echo"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Prints a message to the console")
+    sca.addMandatoryField("msg","message words", "string",
+            "A message composed of several words",
+            example="{} I'm tired, this is so boring".format(item))
+
+##    ] elsif ($kind eq "email")[
+    item = "email"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("sends a message by email to the user defined by the variable NOTIFY")
+    sca.addMandatoryField("msg","message", "string",
+            "A set of words to be sent as an email",
+            example="{} WTF? Something failed during this".format(item) )
+
+##    ] elsif ($kind eq "failure" or $kind eq "error" or $kind eq "fail")[
+    item = "failure"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Appends an error message to the Errors' file")
+    sca.addMandatoryField("msg","message words", "string",
+            "A message composed of several words",
+            example="{} something went wrong ".format(item))
+
+    item = "error"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Appends an error message to the Errors' file")
+    sca.addMandatoryField("msg","message words", "string",
+            "A message composed of several words",
+            example="{} something went very wrong ".format(item))
+
+    item = "fail"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Appends an error message to the Errors' file")
+    sca.addMandatoryField("msg","message words", "string",
+            "A message composed of several words",
+            example="{} something went utterly wrong ".format(item))
+
+##  System
+    item = "system"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.asComment("system related operations")
+
+##    ] elsif($kind eq "mkdir")[
+    item = "mkdir"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Create a new directory")
+    sca.addMandatoryField("directory","/full/path/to/directory", "string",
+            "Target directory.",
+            example="{} /full/path/to/directory".format(item) )
+
+##    ] elsif($kind eq "chdir")[
+    item = "chdir"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Changes directory to the target directory")
+    sca.addMandatoryField("directory","/full/path/to/directory", "string",
+            "Target directory.",
+            example="{} /full/path/to/directory".format(item) )
+
+#    sca.addMandatoryField("command","file_name", "string",
+#            "Command to execute plus its arguments. Redirection is allowed",
+#            example="exec unlink file-name")
+
+##    ] elsif (($kind eq "delete") or ($kind eq "remove") or ($kind eq "rm"))[
+    item = "rm"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Remove or delete a file")
+    sca.addMandatoryField("file-name","file_name", "string",
+            "Removes file-name from the disk.",
+            example="{} fileName".format(item))
+
+    item = "remove"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Remove or delete a file")
+    sca.addMandatoryField("file-name","file_name", "string",
+            "Removes file-name from the disk.",
+            example="{} fileName".format(item))
+
+    item = "delete"
+    sca = ozArgs.methods(item, scArgs)
+    scArgs[item] = sca
+    oargs.append(item)
+    sca.addDescription("Remove or delete a file")
+    sca.addMandatoryField("file-name","file_name", "string",
+            "Removes file-name from the disk.",
+            example="{} fileName".format(item))
+
+
+######  No more commands
+
+    for arg in oargs:
+        argo = scArgs[arg]
+#       print arg
+#       print "    ",argo.description
+        argo.shortHelp("")
+
+    pass
+else:
+    print "WTF?"
+    print "arguments: ", sys.argv, nargs
+
+
+sys.exit()
