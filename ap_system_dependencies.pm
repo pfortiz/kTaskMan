@@ -1,4 +1,4 @@
-# A package to bundle all system dependencies used in wAPPP in one place,
+# A package to bundle all system dependencies used in kTaskMan in one place,
 # so that adding new sites or situations becomes simple, affecting only
 # this script.
 #
@@ -44,9 +44,14 @@ sub getFromRc(){
         if(/^#/ or /^$/){ next; }
         chop;
         my ($key, $value) = split(/=/,$_,2);
-        $rcDict{$key} = "$value";
+        if($rcDict{$key} eq ""){
+            $rcDict{$key} = "$value";
+        } else {
+            $rcDict{$key} .= ";$value";
+        }
     }
     close(F);
+    # fix the paths: legoPath
     return %rcDict;
 }
 

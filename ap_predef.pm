@@ -90,13 +90,18 @@ sub locateTBlegos(){
 
     my %legos;
     my @pp;
+    my $pepe;
+    my @lp = split(/;/, $pPath);
     print STDERR "LEGOS in $pPath\n";
-    open(P, "ls $pPath|");
-    while(<P>){
-        if(/^TB_/){
-#            print "LEGO found: $_\n";
-            chop;
-            $legos{$_} = "$pPath/$_";
+    foreach $pepe (@lp){
+
+        open(P, "ls $pepe|");
+        while(<P>){
+            if(/^TB_/){
+                chop;
+                print "LEGO found: $_\n";
+                $legos{$_} = "$pepe/$_";
+            }
         }
     }
     # addition on October 10, 2018 to account for the fact that TBlegos

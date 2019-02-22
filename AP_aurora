@@ -316,7 +316,7 @@ DEFINE_a_TASK
         print BB <<"BAREBONES";
 NDAYS=$ndays
 
-# this a wAPPP bare-bones project description file.
+# this a kTaskMan bare-bones project description file.
 # You should only enter lines of the form
 #
 # taskName: tasks-on which-this-task-depends

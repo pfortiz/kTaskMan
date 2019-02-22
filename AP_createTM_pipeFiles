@@ -159,19 +159,19 @@ $which = $apDict{"appath"};
 
 $localPython = $apDict{"python"};
 
-my $runPipeline = "$which/AP_runPipeline";
-my $mkControl = "$which/AP_makeSingleCtlFile";
-my $fmkControl = "$which/AP_flexibleMakeCtlFile";
-my $verDone = "$which/AP_examineGT_LOG";
-my $balance = "$which/AP_spotUnbalancedAUX_LST";
-my $contentRetriever = "$which/AP_contentRetriever";
-my $getTimeStamp = "$which/AP_getAvailableTimestamp";
-my $extractWhatWasProcessed = "$which/AP_extractProcessedTimestamps";
-my $locateUnprocessed = "$which/AP_locateUnprocessed";
-my $downloader = "$which/AP_ftpDownload.py";
-my $uploader = "$which/AP_ftpUpload.py";
-my $wrapper = "$which/AP_xwrapper";
-my $verifier = "$which/AP_verifyGtProducts.py";
+my $runPipeline = "BINDIR/AP_runPipeline";
+my $mkControl = "BINDIR/AP_makeSingleCtlFile";
+my $fmkControl = "BINDIR/AP_flexibleMakeCtlFile";
+my $verDone = "BINDIR/AP_examineGT_LOG";
+my $balance = "BINDIR/AP_spotUnbalancedAUX_LST";
+my $contentRetriever = "BINDIR/AP_contentRetriever";
+my $getTimeStamp = "BINDIR/AP_getAvailableTimestamp";
+my $extractWhatWasProcessed = "BINDIR/AP_extractProcessedTimestamps";
+my $locateUnprocessed = "BINDIR/AP_locateUnprocessed";
+my $downloader = "BINDIR/AP_ftpDownload.py";
+my $uploader = "BINDIR/AP_ftpUpload.py";
+my $wrapper = "BINDIR/AP_xwrapper";
+my $verifier = "BINDIR/AP_verifyGtProducts.py";
 
 open(B, "<$pipeParams");
 while(<B>){
@@ -191,6 +191,7 @@ print FT <<"DATERANGE";
 --PARAMETERS
 TAG = $pName
 SITE_PATH=$basePath
+BINDIR=$which
 AP_PATH=$apPath
 RUNPIPELINE = $runPipeline
 WALLTIME = $walltime
@@ -279,6 +280,7 @@ print  DP <<"SYSTEM_STUFF";
 
 TAG = $pName
 SITE_PATH=$basePath
+BINDIR=$which
 AP_PATH=$apPath
 RUNPIPELINE = $runPipeline
 MAKE_CONTROL = $mkControl
