@@ -342,31 +342,6 @@ BEGIN{
     $packagePath = $myPath;
 }
 
-#BEGIN{
-#    sub getFromRc(){
-#        my $file = @_[0];
-#        my %rcDict;
-#        open(F, "<$file");
-#        while(<F>){
-#            if(/^#/ or /^$/){ next; }
-#            chop;
-#            ($key, $value) = split(/=/,$_,2);
-#            $rcDict{$key} = "$value";
-#        }
-#        close(F);
-#        return %rcDict;
-#    }
-#    my $home = $ENV{HOME};
-#    my $rcfile = "$home/.automatedProcessing";
-#    if(!-e $rcfile){
-#        die "Please run AP_assistant to initialise the AUTOMATED_PROCESSING package\n\n";
-#    }
-#    %apDict = &getFromRc($rcfile);
-#    $packagePath = $apDict{"appath"};
-#}
-
-#use timex qw(&dateToDoy &isLeap &daysInMonth &daysInYear &listOfDates &datesBetween &segmentedDates);
-
 use lib "$packagePath";
 use ap_timex;
 use ap_system_dependencies;
@@ -381,6 +356,7 @@ foreach $_ (sort keys %apDict){
 
 $waitTime = 60; # sleep time of 1 minute
 
+my $showVariables = 0;
 
 my @monthsInWords = qw(nothing January February March April May June July August September October November December);
 
@@ -489,6 +465,8 @@ foreach $_ (@ARGV){
     } elsif(lc($aname) eq "-help"){
         &showHelp();
         exit;
+    } elsif(lc($aname) eq "-showdefvariables"){
+        $showVariables = 1;
 #    } elsif(lc($aname) eq "-topdir"){
 #        if($avalue =~/^\./){
 #            $avalue =~ s/^\./$cwd/;
@@ -501,6 +479,7 @@ foreach $_ (@ARGV){
         ($vname, $vvalue) = split(/=/);
         $dvars{$vname} = 1;
         $$vname = $vvalue;
+        $activeVars{$vname} = $vvalue;
 
         # this works, and it gives runPipeline a much broader scope than
         # handling just time, as these variables can be used to list
@@ -514,6 +493,7 @@ foreach $_ (@ARGV){
             $CL_VARIABLES .= " $_";
         }
         $dvars{"CL_VARIABLES"} = 1;
+        $activeVars{"CL_VARIABLES"} = 1;
     } else {  # unknown option. Stop execution
         print "Unknown option: $aname. Quiting\n";
         exit;
@@ -531,7 +511,72 @@ $pid = $$;
 # is : present in the date string?
 $_ = $date;
 
-if(/\@/){        # we've got a segmented range of dates
+$lcDate = lc($date);
+%specialDates = &getValidIntervals();
+
+$isSpecial = $specialDates{$lcDate};
+#print "isSpecial: $datesToProcess $isSpecial\n";
+
+
+if($isSpecial == 1){
+    @LISTOFDATES = &getSpecialDates($lcDate);
+#    print "LISTOFDATES", @LISTOFDATES, "\n";
+    if(length(@LISTOFDATES) == 1){
+        $_ = shift(@LISTOFDATES);
+        @pdate = split(/-/);
+        $year  = shift(@pdate);
+        $month = shift(@pdate);
+        $day   = shift(@pdate);
+        $imonth = int($month);
+        $lmonth = $monthsInWords[$imonth];
+        $iday = int($day);
+        $smonth = sprintf("%02d", $imonth);
+        $sday = sprintf("%02d", $iday);
+        $prefix = "";
+        
+        if($day eq "" and $month eq ""){
+            $mode = "yearly";
+            $prefix = "/tasks";
+            @LISTOFDATES = &datesBetween("$year-1-1", "$year-12-31", "-");
+            if($slave != 1){
+                print STDERR "dates in year $year AD: @LISTOFDATES\n";
+            }
+            $dlists{"LISTOFDATES"} = 1;
+        } elsif ( $day eq "" and $month ne ""){
+            $DAYSINMONTH = &daysInMonth($year, $imonth);
+            $dvars{"DAYSINMONTH"} = 1;
+            $activeVars{"DAYSINMONTH"} = $DAYSINMONTH;
+            @LISTOFDATES = &datesBetween("$year-$month-1", "$year-$month2-$DAYSINMONTH", "-");
+            if($slave != 1){
+                print STDERR "dates in month $year/$month AD: @LISTOFDATES\n";
+            }
+            $dlists{"LISTOFDATES"} = 1;
+            $mode = "monthly";
+            $prefix = "/tasks";
+        } else {
+            $mode = "daily";
+            $prefix = "";
+            push @LISTOFDATES, $_;
+            $dlists{"LISTOFDATES"} = 1;
+            $DAYOFYEAR = &dateToDoy($year, $month, $day);
+            $dvars{"DAYOFYEAR"} = 1;
+            $activeVars{"DAYOFYEAR"} = $DAYOFYEAR;
+            $SDOY = $DAYOFYEAR;
+            $dvars{"SDOY"} = 1;
+            $activeVars{"SDOY"} = $SDOY;
+            $IDOY = int($DAYOFYEAR);
+            $dvars{"IDOY"} = 1;
+            $activeVars{"IDOY"} = $IDOY;
+        }
+        
+    
+        $DAYSINMONTH            = &daysInMonth($year, $imonth);
+        $DAYSINYEAR             = &daysInYear($year);
+        $dvars{"DAYSINYEAR"}    = 1;
+        $activeVars{"DAYSINYEAR"} = $DAYSINYEAR;
+        $activeVars{"DAYSINMONTH"} = $DAYSINMONTH;
+    }
+} elsif(/\@/){        # we've got a segmented range of dates
     if($slave != 1){
         print STDERR "segmented dates: $date\n";
     }
@@ -610,6 +655,7 @@ if(/\@/){        # we've got a segmented range of dates
     } elsif ( $day eq "" and $month ne ""){
         $DAYSINMONTH = &daysInMonth($year, $imonth);
         $dvars{"DAYSINMONTH"} = 1;
+        $activeVars{"DAYSINMONTH"} = $DAYSINMONTH;
         @LISTOFDATES = &datesBetween("$year-$month-1", "$year-$month2-$DAYSINMONTH", "-");
         if($slave != 1){
             print STDERR "dates in month $year/$month AD: @LISTOFDATES\n";
@@ -624,16 +670,21 @@ if(/\@/){        # we've got a segmented range of dates
         $dlists{"LISTOFDATES"} = 1;
         $DAYOFYEAR = &dateToDoy($year, $month, $day);
         $dvars{"DAYOFYEAR"} = 1;
+        $activeVars{"DAYOFYEAR"} = $DAYOFYEAR;
         $SDOY = $DAYOFYEAR;
         $dvars{"SDOY"} = 1;
+        $activeVars{"SDOY"} = $SDOY;
         $IDOY = int($DAYOFYEAR);
         $dvars{"IDOY"} = 1;
+        $activeVars{"IDOY"} = $IDOY;
     }
     
 
     $DAYSINMONTH            = &daysInMonth($year, $imonth);
     $DAYSINYEAR             = &daysInYear($year);
     $dvars{"DAYSINYEAR"}    = 1;
+    $activeVars{"DAYSINYEAR"} = $DAYSINYEAR;
+    $activeVars{"DAYSINMONTH"} = $DAYSINMONTH;
 }
 
 $y2d = substr($year,2,2);
@@ -749,6 +800,14 @@ while(<P>){
     if(/--TASKS/){ last; }
     ($key, $eq, $val)  = split;
     $dvars{$key} = 1;
+    $activeVars{$key} = $DAYSINYEAR;
+    $activeVars{"YYY"} = $year;
+    $activeVars{"Y2D"} = $y2d;
+    $activeVars{"SMM"} = $smonth;
+    $activeVars{"LMM"} = $lmonth;
+    $activeVars{"SDD"} = $sday;
+    $activeVars{"MMM"} = $imonth;
+    $activeVars{"DDD"} = $iday;
     if($timeMode eq "daily" or $timeMode eq "date-range"){
         $val =~ s/YYY/$year/g;
         $val =~ s/Y2D/$y2d/g;
@@ -787,6 +846,7 @@ while(<P>){
         $$key = $val;
     }
     push @params, $_;
+    $activeVars{$key} = $val;
     $usedKeys{$key} = $$key;
     push @varSummary, "$key :: $$key\n";
 #    print LOG "$key :: $$key\n";
@@ -798,6 +858,7 @@ while(<P>){
 if($NOTIFY ne ""){
     ($USERNAME, $domain) = split(/@/, $NOTIFY);
     $usedKeys{"USERNAME"} = $USERNAME;
+    $activeVars{"USERNAME"} = $USERNAME;
 #    print "$USERNAME\n";
 }
 $dvars{"WALLTIME"} = 1;
@@ -1058,7 +1119,6 @@ if($clmaxmem ne ""){
     $memory = int($clmaxmem);
 }
 
-
 $gmarker = "$scratch/tracer-${procedureId}-$host-$pid";
 # extract list of tasks. Sharp in a line marks it as a comment
 #open(T, "<$tasksFile");
@@ -1314,6 +1374,15 @@ for( $tt = 0; $tt < $nTasks; $tt++){
 
 # Now the fun begins... actually performing what has been requested
 #
+if ($showVariables == 1){
+    print "Must show variables, hold your horses\n";
+    foreach $var (sort keys %activeVars){
+        $value = $activeVars{$var};
+        print "$var = $value\n";
+    }
+    exit;
+}
+
 undef %revTasks;
 $tt = 0;
 $inLoop = 0;

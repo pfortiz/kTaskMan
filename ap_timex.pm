@@ -19,16 +19,19 @@ my @monthsInWords = qw(dummy January February March April May June July August S
 my %validIntervals = qw(
     this_year 1
     this_month 1
+    today 1
     today_UT 1
     today_GMT 1
     today_LocalTime 1
     today-local-time 2
     today-universal-time 2
+    tomorrow 1
     tomorrow_UT 1
     tomorrow_GMT 1
     tomorrow_LocalTime 1
     tomorrow-local-time 2
     tomorrow-universal-time 2
+    yesterday 1
     yesterday_UT 1
     yesterday_GMT 1
     yesterday_LocalTime 1
@@ -36,6 +39,7 @@ my %validIntervals = qw(
     yesterday-universal-time 2
     last_Month 1
     last_Year 1
+    last
     next_Month 2
     next_Year 2
 );
@@ -46,7 +50,7 @@ use Exporter qw(import);
  
 #our @EXPORT_OK = qw(isLeap equivDateDoy dateToDoy listOfDates daysInMonth daysInYear todayInDoy datesBetween segmentedDates getListOfDates);
 
-our @EXPORT = qw(isLeap equivDateDoy dateToDoy listOfDates daysInMonth daysInYear todayInDoy datesBetween segmentedDates getListOfDates getSpecialDates getUTCat00 getValidIntervals);
+our @EXPORT = qw(isLeap equivDateDoy dateToDoy listOfDates daysInMonth daysInYear todayInDoy datesBetween segmentedDates getListOfDates getSpecialDates getUTCat00 getValidIntervals isHumanReadable, getHumanReadable);
  
 # returns the hash containing the valid intervals
 sub getValidIntervals(){
@@ -522,16 +526,16 @@ sub getSpecialDates(){
     my @lodates;
     my ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst);
     my ($yy, $mm, $dd);
-    print "TimeStamp: $initialTime\n";
+#    print "TimeStamp: $initialTime\n";
     $directive = lc($directive);
-    if($directive eq "today-local-time" or
+    if($directive eq "today-local-time" or $directive eq "today" or
        $directive eq "today_localtime"){
         ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst) = localtime($initialTime);
-    } elsif($directive eq "yesterday-local-time" or
+    } elsif($directive eq "yesterday-local-time" or $directive eq "yesterday" or
        $directive eq "yesterday_localtime"){
         $initialTime -= 86400;
         ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst) = localtime($initialTime);
-    } elsif($directive eq "tomorrow-local-time" or
+    } elsif($directive eq "tomorrow-local-time" or $directive eq "tomorrow" or
        $directive eq "tomorrow_localtime"){
         $initialTime += 86400;
         ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst) = localtime($initialTime);

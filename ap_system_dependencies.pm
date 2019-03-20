@@ -13,7 +13,7 @@ use strict;
 
 use Exporter qw(import);
 
-our @EXPORT = qw(getFromRc getNavailableProcesses getRunningJobIds getProcessDict decHourToHHMM decHourToHHMMSS getSiteParams createQsubFile pipeStats getFreeMemoryInMB);
+our @EXPORT = qw(getFromRc getNavailableProcesses getRunningJobIds getProcessDict decHourToHHMM decHourToHHMMSS getSiteParams createQsubFile pipeStats getFreeMemoryInMB appendLegoPath);
  
 #our @EXPORT_OK = qw(isLeap equivDateDoy dateToDoy listOfDates daysInMonth daysInYear todayInDoy datesBetween segmentedDates getListOfDates);
 
@@ -55,6 +55,48 @@ sub getFromRc(){
     return %rcDict;
 }
 
+sub appendLegoPath(){
+    my $newPath = shift(@_);
+    my $home = $ENV{HOME};
+    my $rcfile = "$home/.automatedProcessing";
+    my ($key, $value, $appath, @pts);
+    my $argsPython;
+    open(RC, "<$rcfile");
+    my $found = 0;
+    while(<RC>){
+        chop;
+        if(/^legoPath=/){
+            @pts = split(/=/);
+            $key = shift(@pts);
+            $value = shift(@pts);
+#            print;
+#            print "KV: $key, $value\n";
+            if($value eq $newPath){
+                print "$newPath already in\n";
+                $found = 1;
+            }
+        } elsif(/^appath=/){
+            @pts = split(/=/);
+            $appath = $pts[1];
+        }
+    }
+    close(RC);
+    if($found == 0){
+        print "$newPath not found in $rcfile, appending\n";
+        open(RC, ">>$rcfile");
+        print RC "legoPath=$newPath\n";
+        close(RC);
+    }
+
+    $argsPython = "ozArgs.py";
+    if(-e $argsPython){
+        print "$argsPython Exists\n";
+    } else {
+        print "$argsPython Missing. Will copy\n";
+        print "cp $appath/essentials/$argsPython .\n";
+        system "cp $appath/essentials/$argsPython .";
+    }
+}
 
 # This routine creates the .rc file based on the system it is in.
 sub createRc(){
@@ -177,9 +219,6 @@ parallel=$parallel
 # The path to where SOFTWARE/SCRIPTS is located
 basePath=$basePath
 
-# The path to where Task-Block file (TB_) are located
-legoPath=$bundlePath
-
 # The full path to where this "package" is located
 appath=$bundlePath
 
@@ -218,6 +257,10 @@ machine=$machine
 
 # For non-parallel systems
 processingDir = $nonParallelProcessingDirectory
+
+# The path to where Task-Block file (TB_) are located
+legoPath=$bundlePath
+
 RUNPIPELINERC
     close(RC);
 }

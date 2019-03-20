@@ -190,18 +190,18 @@ print FT <<"DATERANGE";
 #The following line must exist
 --PARAMETERS
 TAG = $pName
-SITE_PATH=$basePath
-BINDIR=$which
-AP_PATH=$apPath
-RUNPIPELINE = $runPipeline
+SITE_PATH = $basePath
+BINDIR = $which
+AP_PATH = $apPath
+AP_RUNPIPELINE = $runPipeline
 WALLTIME = $walltime
 MEMORY = $memory
 DAEMON_PATH = $daemonPath
-GET_PATH_CONTENT = $contentRetriever
-DOWNLOADER = $downloader
-UPLOADER = $uploader
-X_WRAPPER = $wrapper
-VERIFIER = $verifier
+AP_GET_PATH_CONTENT = $contentRetriever
+AP_DOWNLOADER = $downloader
+AP_UPLOADER = $uploader
+AP_X_WRAPPER = $wrapper
+AP_VERIFIER = $verifier
 TASK_PATH = $cwd
 MONTY = $localPython
 
@@ -272,6 +272,20 @@ if($site eq "nonParallel"){
 }
 
 
+#my $runPipeline = "BINDIR/AP_runPipeline";
+#my $mkControl = "BINDIR/AP_makeSingleCtlFile";
+#my $fmkControl = "BINDIR/AP_flexibleMakeCtlFile";
+#my $verDone = "BINDIR/AP_examineGT_LOG";
+#my $balance = "BINDIR/AP_spotUnbalancedAUX_LST";
+#my $contentRetriever = "BINDIR/AP_contentRetriever";
+#my $getTimeStamp = "BINDIR/AP_getAvailableTimestamp";
+#my $extractWhatWasProcessed = "BINDIR/AP_extractProcessedTimestamps";
+#my $locateUnprocessed = "BINDIR/AP_locateUnprocessed";
+#my $downloader = "BINDIR/AP_ftpDownload.py";
+#my $uploader = "BINDIR/AP_ftpUpload.py";
+#my $wrapper = "BINDIR/AP_xwrapper";
+#my $verifier = "BINDIR/AP_verifyGtProducts.py";
+
 $daily = "$pName.specific";
 open(DP, ">$daily");
 print  DP <<"SYSTEM_STUFF";
@@ -279,22 +293,22 @@ print  DP <<"SYSTEM_STUFF";
 --PARAMETERS
 
 TAG = $pName
-SITE_PATH=$basePath
-BINDIR=$which
-AP_PATH=$apPath
-RUNPIPELINE = $runPipeline
-MAKE_CONTROL = $mkControl
-FLEX_MAKE_CONTROL = $fmkControl
-EXAMINE_DONE = $verDone
-SPOT_BALANCE = $balance
-GET_PATH_CONTENT = $contentRetriever
-GET_TIMESTAMP = $getTimeStamp
-GET_PROCESSED = $extractWhatWasProcessed
-LOCATE_UNPROCESSED = $locateUnprocessed
-DOWNLOADER = $downloader
-UPLOADER = $uploader
-X_WRAPPER = $wrapper
-VERIFIER = $verifier
+SITE_PATH = $basePath
+BINDIR = $which
+AP_PATH = $apPath
+AP_RUNPIPELINE = $runPipeline
+AP_MAKE_CONTROL = $mkControl
+AP_FLEX_MAKE_CONTROL = $fmkControl
+AP_EXAMINE_DONE = $verDone
+AP_SPOT_BALANCE = $balance
+AP_GET_PATH_CONTENT = $contentRetriever
+AP_GET_TIMESTAMP = $getTimeStamp
+AP_GET_PROCESSED = $extractWhatWasProcessed
+AP_LOCATE_UNPROCESSED = $locateUnprocessed
+AP_DOWNLOADER = $downloader
+AP_UPLOADER = $uploader
+AP_X_WRAPPER = $wrapper
+AP_VERIFIER = $verifier
 MONTY = $localPython
 
 TASK_PATH = $cwd

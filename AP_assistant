@@ -54,7 +54,7 @@ my %apDict = &getFromRc();
 
 foreach $_ (sort keys %apDict){
     $$_ = $apDict{$_};
-    print "AP-DICT: $_ $$_\n";
+#    print "AP-DICT: $_ $$_\n";
 }
 
 $site = $apDict{"site"};
@@ -73,9 +73,7 @@ if($lp[0] eq "/"){
 #%legos = &locateTBlegos($legoPath);
 %legos = &locateTBlegos($LEGOPATH);
 
-foreach $leg (keys %legos){
-    print "THE legos: $legos{$leg}\n";
-}
+#foreach $leg (keys %legos){ print "THE legos: $legos{$leg}\n"; }
 
 #@rj = &getRunningJobIds(%apDict);
 
@@ -143,8 +141,9 @@ if($#ARGV < 0){
 
     print <<"USAGE";
 Usage: AP_assitant
-Usage: AP_assitant -create-TaskBlock-perl TB_name TB_arg1 [...  TB_argN]
-Usage: AP_assitant -create-TaskBlock-python TB_name TB_arg1 [...  TB_argN]
+Usage: AP_assitant -create-TaskBlock-perl TB_name file-with-TB-arguments
+Usage: AP_assitant -create-sample-TB-arguments
+Usage: AP_assitant -create-TaskBlock-python TB_name file-with-TB-arguments
 Usage: AP_assitant -create-bb-sample name
 Usage: AP_assitant bb-file
 Usage: AP_assitant ff-file
@@ -168,12 +167,258 @@ $inFile = shift(@ARGV);
 if($inFile eq "-create-TaskBlock-perl"){
     $tbname = shift(@ARGV);
     @arguments = @ARGV;
+    print "Task not implemented yet. Try with python please\n";
+    exit;
+}
+
+if($inFile eq "-create-sample-TB-arguments"){
+#    $tbname = shift(@ARGV);
+#    @arguments = @ARGV;
+    print <<"ARGUMENTS";
+# Use a symbol to separate arguments' fields
+separator=|
+# Describe what this block is supposed to do
+blockDescription=This block does this and that
+
+# Lines following the next shall contain the command-line arguments in the form:
+# argumentName<separator>Description<separator>default-value
+# Do remove the example, of course!
+==arguments
+mockOutputFile|MockFile to generate messages|stdout
+
+# Lines following the next shall contain global definitions used by the
+# pipeline
+==pipeParameters
+TOPDIR = /home/pfo/myVeryOwnPipelines
+DATA_IN = TOPDIR/some-data
+DATA_OUT = TOPDIR/intermediate-file.txt
+
+# Lines following the next shall contain the actual commands to be executed
+# and they shall make use of pipeParameters
+==linesToRun
+sexec cat DATA_IN > DATA_OUT
+
+ARGUMENTS
     exit;
 }
 
 if($inFile eq "-create-TaskBlock-python"){
-    $tbname = shift(@ARGV);
-    @arguments = @ARGV;
+    if($nargs != 3){
+        print "Usage: AP_assitant -create-TaskBlock-python TB_name TB_args-file\n";
+        
+        print "\tThe first line contains the field separator by itself:\n";
+        print "\tThe second line describes what this blocks purpose is\n";
+        print "\tEach subsequentline shall have the form:\n";
+        print "TBarg-Name<separator>description<separator>default-value\n";
+        exit();
+    }
+    $tbName = shift(@ARGV);
+    $tbFile = shift(@ARGV);
+    if(!-e $tbFile){
+        print "File $tbFile must exist. Quiting\n";
+        exit();
+    }
+    open(TB, ">$tbName");
+
+    # notice that there is an expected syntax for each argument.
+    # They need to be enclosed by single or double quotes
+    # components for each arg will be separated by a semi-colon: ';'
+
+    print TB <<"THE_SAMPLE";
+#!/usr/bin/env python
+# Written for python 2.x, not 3.x
+
+import sys
+import os
+import ozArgs
+
+# add whatever other package you need here
+
+# function to write the status to either a file or stdout
+# 'DONE' must be part of the status line for a successful execution
+# 'DONE' must be absent when a failure occurs
+# 'FAIL' shall be present when a failure occurs
+def logStatus(line):
+    # The script shall produce some information when it has concluded
+    # correctly writing to 'statusFile' or stdout if statusFile is not present
+    oFileName = argDict["statusFile"]
+    if oFileName != "stdout":
+        ofile = open(oFileName, "w+")
+        ofile.write(line+"\\n")
+        ofile.close()
+    else:
+        print line
+    sys.exit()
+
+nargs = len(sys.argv)
+#me = sys.argv[0]
+args = sys.argv[1:]
+me = sys.argv[0]
+myself = me.split("/")[-1]
+irene = "{}/{}".format(os.getcwd(), myself)
+
+#print me
+#print myself
+#print irene
+
+# basic parameters
+# input arguments:
+iargs = ozArgs.methods(myself, {})
+
+
+# Do not touch at all
+iargs.addMandatoryKV("mode", "what-to-do", "string",
+        "Operation to perform", example="action=exec",
+        pv=[
+            ["describe","Describe this task", ""],
+            ["showParams","List the pipe parameters", ""],
+            ["showLines","List the lines to be run in the pipeline", ""],
+            ["exec","Executes this script", ""],
+        ], default="exec")
+
+
+# Change the lines which contain XXX
+
+THE_SAMPLE
+
+    open(TN, "<$tbFile");
+    my $separator = "";
+    my $blockDescription = "";
+    chop($separator);
+    chop($blockDescription);
+    my $mode = 0;
+    my @pipeParams;
+    my @linesToRun;
+    while(<TN>){
+        chop;
+        if(length($_) == 0){ next; }
+        if(/^#/){ next; }
+
+        if (/^separator=/){
+            @pts = split(/=/);
+            $separator=$pts[1]
+        } elsif (/^blockDescription=/){
+            @pts = split(/=/);
+            $blockDescription=$pts[1]
+        } elsif ($_ eq "==arguments"){
+            $mode = $_;
+        } elsif ($_ eq "==pipeParameters"){
+            $mode = $_;
+        } elsif ($_ eq "==linesToRun"){
+            $mode = $_;
+        } else {
+#    foreach $_ (@tbargs){
+#        $key, $value = split(/=/);
+#        $_ = $value;
+            if($mode eq "==arguments"){
+                @pts = split(/$separator/);
+                $name = shift(@pts);
+                $desc = shift(@pts);
+                $default = shift(@pts);
+                print TB <<"ONE_ARGUMENT";
+iargs.addOptionalKV("$name", "$name", "string",
+        "$desc", example="$name=$default",
+        default="$default")
+ONE_ARGUMENT
+            } elsif($mode eq "==pipeParameters"){
+                push @pipeParams, $_;
+            } elsif($mode eq "==linesToRun"){
+                push @linesToRun, $_;
+            }
+        }
+
+    }
+
+#iargs.addOptionalKV("date", "TODAY", "string",
+#        "Date used for processing", example="date=TODAY",
+#        default=None)
+#
+#iargs.addOptionalKV("inputfile", "RAW/this.pico", "string",
+#        "Input file", example="inputFile=thisFile", 
+#        eg="RAW_DIR/DAILY_PATH/YYY_SMM_SDD_PQsensors.txt",
+#        default=None)
+#
+#iargs.addOptionalKV("statusfile", "RAW/this.pico", "string",
+#        "File where to output", example="inputFile=thisFile", 
+#        eg="RAW_DIR/DAILY_PATH/YYY_SMM_SDD_PQsensors.txt",
+#        default="stdout")
+#
+#iargs.addOptionalKV("action", "TODAY", "string",
+#        "What to execute", example="date=TODAY",
+#        default="purge")
+
+    print TB <<"THE_SAMPLE";
+iargs.addDescription("$blockDescription")
+### Remove or replace the sample lines by the ones you need
+pipeParams = [
+THE_SAMPLE
+    foreach $_ (@pipeParams){
+        print TB "        \"$_\",\n";
+    }
+#        "TOPDIR = /Users/pfo/harvesting",
+#        "HISTORY_DIR = /Users/pfo/AP_HISTORY",
+#        "RAW_DIR = TOPDIR/raw",
+#        "COOKED_DIR = TOPDIR/dbs",
+#        "HARV_RAW_PATH = RAW_DIR/YYY/SMM/SDD",
+#        "DAILY_NAME = HARV_RAW_PATH/test_YYY_SMM_SDD.txt"
+#        "DAILY_PATH = HISTORY_DIR/YYY/SMM/SDD"
+    print TB <<"THE_SAMPLE";
+        ]
+
+### Remove or replace the sample lines by the ones you need
+linesToRun = [
+THE_SAMPLE
+
+    foreach $_ (@linesToRun){
+        print TB "        \"$_\",\n";
+    }
+#        "sexec {} THE_ARGUMENTS >> /dev/null".format(irene)
+    print TB <<"THE_SAMPLE";
+        ]
+
+doThis, fail = iargs.check(args, "")
+if fail:
+    sys.exit()
+
+
+argMode = doThis["mode"]
+    
+# DESCRIPTION BLOCK, activated if the CL argument -describe is present
+if argMode == "describe":
+    iargs.showArgs("")
+    sys.exit()
+
+#if "-pipeParams" in argDict:
+if argMode == "showParams":
+    for p in pipeParams:
+        print p
+    sys.exit()
+
+#if "-linesToRun" in argDict:
+if argMode == "showLines":
+    for p in linesToRun:
+        print p
+    sys.exit()
+
+
+# The execution block. Perform whatever task you need to do, like reading a
+# file, transfering a file, convert a file with some kind of filter, etc.
+
+
+# The pipeline software does require and ending message saying that the
+# operation was successful or if it fails
+# 'DONE' must be part of the status line for a successful execution
+# 'DONE' must be absent when a failure occurs
+# 'FAIL' shall be present when a failure occurs
+statusLine = "DONE with flying colours"
+logStatus(statusLine)
+
+THE_SAMPLE
+    close(TN);
+    close(TB);
+    system("chmod ug+x $tbFile");
+#    print "CWD:  $cwd\n";
+    &appendLegoPath($cwd);
     exit;
 }
 
@@ -1356,12 +1601,12 @@ sub bbud(){
         $ppath = $legos{$blockName};
 #        $argString = $ppath;
         print "path: $ppath\n";
-        open(P, "$ppath -pipeParams|");
+        open(P, "$ppath mode=pipeParams|");
         while(<P>){
             $pipeparams .= $_;
         }
         close(P);
-        open(P, "$ppath -describe|");
+        open(P, "$ppath mode=describe|");
         while(<P>){
             @pp = split();
             $argname = $pp[0];
@@ -1375,7 +1620,7 @@ sub bbud(){
             $argstodef .= $argdef;
         }
         close(P);
-        open(P, "$ppath -linesToRun|");
+        open(P, "$ppath mode=linesToRun|");
         while(<P>){
             if(/THE_ARGUMENTS/){
 #                print "MUST SUBSTITUTE THE_ARGUMENTS for $argString\n";

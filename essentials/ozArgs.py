@@ -193,6 +193,17 @@ class methods(object):
         print ""
         return
 
+    def showArgs(self, moi):
+        mappy, theArgs = self.makeMap()
+        for arg in theArgs:
+            fld = self.allFields[arg]
+            if not fld.default is None:
+                print "{} {}".format(arg, fld.default)
+            else:
+                print "{} {}".format(arg, None)
+
+        # end showArgs
+
     def showHelp(self, moi):
         mappy, theArgs = self.makeMap()
 #        print theArgs
