@@ -30,6 +30,9 @@ use Time::Local;
 my @parts = split(/\//, $0);
 my $me = pop(@parts);
 
+my $io = $ENV{USER};
+my $house = $ENV{HOME};
+
 my $packagePath;
 
 BEGIN{
@@ -176,7 +179,7 @@ if($inFile eq "-create-sample-TB-arguments"){
 #    @arguments = @ARGV;
     print <<"ARGUMENTS";
 # Use a symbol to separate arguments' fields
-separator=|
+separator=;
 # Describe what this block is supposed to do
 blockDescription=This block does this and that
 
@@ -184,12 +187,12 @@ blockDescription=This block does this and that
 # argumentName<separator>Description<separator>default-value
 # Do remove the example, of course!
 ==arguments
-mockOutputFile|MockFile to generate messages|stdout
+mockOutputFile;MockFile to generate messages;stdout
 
 # Lines following the next shall contain global definitions used by the
 # pipeline
 ==pipeParameters
-TOPDIR = /home/pfo/myVeryOwnPipelines
+TOPDIR = $house/myVeryOwnPipelines
 DATA_IN = TOPDIR/some-data
 DATA_OUT = TOPDIR/intermediate-file.txt
 
@@ -241,7 +244,7 @@ import ozArgs
 def logStatus(line):
     # The script shall produce some information when it has concluded
     # correctly writing to 'statusFile' or stdout if statusFile is not present
-    oFileName = argDict["statusFile"]
+    oFileName = doThis["statusfile"]
     if oFileName != "stdout":
         ofile = open(oFileName, "w+")
         ofile.write(line+"\\n")
@@ -282,9 +285,9 @@ iargs.addMandatoryKV("mode", "what-to-do", "string",
 THE_SAMPLE
 
     open(TN, "<$tbFile");
-    my $separator = "";
+    my $separator = ";";
     my $blockDescription = "";
-    chop($separator);
+#    chop($separator);
     chop($blockDescription);
     my $mode = 0;
     my @pipeParams;
@@ -296,7 +299,8 @@ THE_SAMPLE
 
         if (/^separator=/){
             @pts = split(/=/);
-            $separator=$pts[1]
+            $separator=$pts[1];
+            print "Found a separator: $separator\n";
         } elsif (/^blockDescription=/){
             @pts = split(/=/);
             $blockDescription=$pts[1]
@@ -313,10 +317,11 @@ THE_SAMPLE
             if($mode eq "==arguments"){
                 @pts = split(/$separator/);
                 $name = shift(@pts);
+                $lcname = lc($name);
                 $desc = shift(@pts);
                 $default = shift(@pts);
                 print TB <<"ONE_ARGUMENT";
-iargs.addOptionalKV("$name", "$name", "string",
+iargs.addMandatoryKV("$lcname", "$name", "string",
         "$desc", example="$name=$default",
         default="$default")
 ONE_ARGUMENT
@@ -388,13 +393,13 @@ if argMode == "describe":
     iargs.showArgs("")
     sys.exit()
 
-#if "-pipeParams" in argDict:
+#if "-pipeParams" in doThis:
 if argMode == "showParams":
     for p in pipeParams:
         print p
     sys.exit()
 
-#if "-linesToRun" in argDict:
+#if "-linesToRun" in doThis:
 if argMode == "showLines":
     for p in linesToRun:
         print p
@@ -416,7 +421,7 @@ logStatus(statusLine)
 THE_SAMPLE
     close(TN);
     close(TB);
-    system("chmod ug+x $tbFile");
+    system("chmod ug+x $tbName");
 #    print "CWD:  $cwd\n";
     &appendLegoPath($cwd);
     exit;
