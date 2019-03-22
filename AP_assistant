@@ -142,14 +142,14 @@ MESSAGE
 
 if($#ARGV < 0){
 
+#Usage: AP_assistant -create-TaskBlock-perl TB_name file-with-TB-arguments
     print <<"USAGE";
-Usage: AP_assitant
-Usage: AP_assitant -create-TaskBlock-perl TB_name file-with-TB-arguments
-Usage: AP_assitant -create-sample-TB-arguments
-Usage: AP_assitant -create-TaskBlock-python TB_name file-with-TB-arguments
-Usage: AP_assitant -create-bb-sample name
-Usage: AP_assitant bb-file
-Usage: AP_assitant ff-file
+Usage: AP_assistant
+Usage: AP_assistant -create-sample-TB-arguments
+Usage: AP_assistant -create-TaskBlock TB_name file-with-TB-arguments
+Usage: AP_assistant -create-bb-sample name
+Usage: AP_assistant bb-file
+Usage: AP_assistant ff-file
 
 The simplest way to start is for you to write a bare-bones file (bb file)
 
@@ -166,6 +166,7 @@ print "Number of available processes: $navail\n";
 
 $nargs = $#ARGV+1;
 $inFile = shift(@ARGV);
+#print "INfile = $inFile\n";
 
 if($inFile eq "-create-TaskBlock-perl"){
     $tbname = shift(@ARGV);
@@ -205,7 +206,7 @@ ARGUMENTS
     exit;
 }
 
-if($inFile eq "-create-TaskBlock-python"){
+if($inFile eq "-create-TaskBlock"){
     if($nargs != 3){
         print "Usage: AP_assitant -create-TaskBlock-python TB_name TB_args-file\n";
         
@@ -215,6 +216,7 @@ if($inFile eq "-create-TaskBlock-python"){
         print "TBarg-Name<separator>description<separator>default-value\n";
         exit();
     }
+
     $tbName = shift(@ARGV);
     $tbFile = shift(@ARGV);
     if(!-e $tbFile){
@@ -244,12 +246,13 @@ import ozArgs
 def logStatus(line):
     # The script shall produce some information when it has concluded
     # correctly writing to 'statusFile' or stdout if statusFile is not present
-    oFileName = doThis["statusfile"]
-    if oFileName != "stdout":
-        ofile = open(oFileName, "w+")
-        ofile.write(line+"\\n")
-        ofile.close()
-    else:
+    try:
+        oFileName = doThis["statusfile"]
+        if oFileName != "stdout":
+            ofile = open(oFileName, "w+")
+            ofile.write(line+"\\n")
+            ofile.close()
+    except:
         print line
     sys.exit()
 
@@ -274,7 +277,8 @@ iargs.addMandatoryKV("mode", "what-to-do", "string",
         "Operation to perform", example="action=exec",
         pv=[
             ["describe","Describe this task", ""],
-            ["showParams","List the pipe parameters", ""],
+            ["arguments","show arguments and defaults for this task", ""],
+            ["pipeParams","List the pipe parameters", ""],
             ["showLines","List the lines to be run in the pipeline", ""],
             ["exec","Executes this script", ""],
         ], default="exec")
@@ -320,8 +324,9 @@ THE_SAMPLE
                 $lcname = lc($name);
                 $desc = shift(@pts);
                 $default = shift(@pts);
+#iargs.addMandatoryKV("$lcname", "$name", "string",
                 print TB <<"ONE_ARGUMENT";
-iargs.addMandatoryKV("$lcname", "$name", "string",
+iargs.addOptionalKV("$lcname", "$name", "string",
         "$desc", example="$name=$default",
         default="$default")
 ONE_ARGUMENT
@@ -390,16 +395,18 @@ argMode = doThis["mode"]
     
 # DESCRIPTION BLOCK, activated if the CL argument -describe is present
 if argMode == "describe":
+    iargs.showDescription()
+    sys.exit()
+
+if argMode == "arguments":
     iargs.showArgs("")
     sys.exit()
 
-#if "-pipeParams" in doThis:
-if argMode == "showParams":
+if argMode == "pipeParams":
     for p in pipeParams:
         print p
     sys.exit()
 
-#if "-linesToRun" in doThis:
 if argMode == "showLines":
     for p in linesToRun:
         print p
@@ -1097,11 +1104,28 @@ INSTRUCTIONS
 
 exit;
 
+sub legoX(){
+    $lex = "";
+    foreach $l (keys %legos){
+        $comm = $legos{$l};
+        $spn = "$comm mode=describe";
+        $res = `$spn`;
+        chop($res);
+#        print "$l $legos{$l}\n";
+        $lex .= "# ${l}- = $res\n";
+    }
+    "#LEGOS\n";
+    $lex;
+}
+
 sub createBBsample(){
     $fname = shift;
 
     open(BB, ">$fname");
     $explain = &cexp();
+    chop($explain);
+    $legoExplain = &legoX();
+    chop($legoExplain);
     print BB <<"HEADER";
 #A bare-bones file contains lines of the form:
 #
@@ -1109,7 +1133,9 @@ sub createBBsample(){
 #
 # Task names should contain prefixes which help define the full information
 # according to their functionality
-${explain}#eg:
+${explain}
+${legoExplain}
+#eg:
 
 dlftp-getDataFromSiteX:
 dlftp-getDataFromSiteY:
@@ -1611,7 +1637,7 @@ sub bbud(){
             $pipeparams .= $_;
         }
         close(P);
-        open(P, "$ppath mode=describe|");
+        open(P, "$ppath mode=arguments|");
         while(<P>){
             @pp = split();
             $argname = $pp[0];
@@ -1625,12 +1651,12 @@ sub bbud(){
             $argstodef .= $argdef;
         }
         close(P);
-        open(P, "$ppath mode=linesToRun|");
+        open(P, "$ppath mode=showLines|");
         while(<P>){
-            if(/THE_ARGUMENTS/){
-#                print "MUST SUBSTITUTE THE_ARGUMENTS for $argString\n";
-                $_ =~ s/THE_ARGUMENTS/$argString/;
-            }
+#            if(/THE_ARGUMENTS/){
+##                print "MUST SUBSTITUTE THE_ARGUMENTS for $argString\n";
+#                $_ =~ s/THE_ARGUMENTS/$argString/;
+#            }
             $linestorun .= $_;
         }
         close(P);

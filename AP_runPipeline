@@ -415,6 +415,17 @@ $QCLEAN    = 16;
 $slave = 0;
 $versyntax = 0;
 
+# I need to have some way of defining active variables associated with
+# current times, not just year, month and day
+# I need to define things like LAST_MIDNIGHT, NOW, X_MINUTES_AGO
+# I also need to define time instants in unix-time-stamp, not only as human
+# readable timeStamps
+# These features are necessary for the cases of the data harvesters which
+# need to work with specific moments in the day, not in a date range.
+# this should go to the activeVars dictionary
+
+%activeVars = &loadExtendedTimeVariables();
+
 $CL_VARIABLES = "";
 foreach $_ (@ARGV){
     ($aname, $avalue) = split(/=/);
@@ -513,6 +524,7 @@ $_ = $date;
 
 $lcDate = lc($date);
 %specialDates = &getValidIntervals();
+
 
 $isSpecial = $specialDates{$lcDate};
 #print "isSpecial: $datesToProcess $isSpecial\n";
@@ -792,6 +804,14 @@ if($host =~/node/){
 
 # extract list of parameters
 open(P, "<$pipelineFile");
+$activeVars{"DAYSINYEAR"} = $DAYSINYEAR;
+$activeVars{"YYY"} = $year;
+$activeVars{"Y2D"} = $y2d;
+$activeVars{"SMM"} = $smonth;
+$activeVars{"LMM"} = $lmonth;
+$activeVars{"SDD"} = $sday;
+$activeVars{"MMM"} = $imonth;
+$activeVars{"DDD"} = $iday;
 while(<P>){
     chop;
     if(/#/){ next; }
@@ -800,14 +820,6 @@ while(<P>){
     if(/--TASKS/){ last; }
     ($key, $eq, $val)  = split;
     $dvars{$key} = 1;
-    $activeVars{$key} = $DAYSINYEAR;
-    $activeVars{"YYY"} = $year;
-    $activeVars{"Y2D"} = $y2d;
-    $activeVars{"SMM"} = $smonth;
-    $activeVars{"LMM"} = $lmonth;
-    $activeVars{"SDD"} = $sday;
-    $activeVars{"MMM"} = $imonth;
-    $activeVars{"DDD"} = $iday;
     if($timeMode eq "daily" or $timeMode eq "date-range"){
         $val =~ s/YYY/$year/g;
         $val =~ s/Y2D/$y2d/g;

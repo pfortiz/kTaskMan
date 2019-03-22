@@ -3,6 +3,7 @@
 #
 # Author: Patricio F. Ortiz
 # Date:   Sometime at the begining of 2017 AD
+# Date:   Additional functions March 2019 AD
 
 package ap_timex;
 
@@ -50,7 +51,7 @@ use Exporter qw(import);
  
 #our @EXPORT_OK = qw(isLeap equivDateDoy dateToDoy listOfDates daysInMonth daysInYear todayInDoy datesBetween segmentedDates getListOfDates);
 
-our @EXPORT = qw(isLeap equivDateDoy dateToDoy listOfDates daysInMonth daysInYear todayInDoy datesBetween segmentedDates getListOfDates getSpecialDates getUTCat00 getValidIntervals isHumanReadable, getHumanReadable);
+our @EXPORT = qw(isLeap equivDateDoy dateToDoy listOfDates daysInMonth daysInYear todayInDoy datesBetween segmentedDates getListOfDates getSpecialDates getUTCat00 getValidIntervals isHumanReadable, getHumanReadable loadExtendedTimeVariables);
  
 # returns the hash containing the valid intervals
 sub getValidIntervals(){
@@ -516,6 +517,22 @@ sub segmentedDates {
     }
     return @lodates;
 
+}
+
+# produce a load of variables related to the current time of execution as well
+# as equivalences to the unix-time-scale for certain special moments
+sub loadExtendedTimeVariables(){
+    # All components of the current time
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime();
+    # this is the current time in seconds from 1970.0
+    my $epoch = time();
+
+    my %variables;
+
+    $variables{"EPOCH_NOW"} = $epoch;
+    $variables{"EPOCH_LAST_MIDNIGHT"} = int($epoch - int($epoch % 86400));
+
+    %variables;
 }
  
 # produce a list of dates based on a time directive

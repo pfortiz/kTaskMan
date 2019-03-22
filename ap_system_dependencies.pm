@@ -93,8 +93,9 @@ sub appendLegoPath(){
         print "$argsPython Exists\n";
     } else {
         print "$argsPython Missing. Will copy\n";
-        print "cp $appath/essentials/$argsPython .\n";
-        system "cp $appath/essentials/$argsPython .";
+#        print "cp $appath/essentials/$argsPython .\n";
+#        system "cp $appath/essentials/$argsPython .";
+        system "cp $appath/$argsPython .";
     }
 }
 
