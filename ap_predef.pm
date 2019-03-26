@@ -70,7 +70,12 @@ sub validateTask(){
 sub getPipelineDefs(){
     my $pipePath = shift;
     my %ppdict;
-    open(AP, "< $pipePath/AP_project");
+    my $projectFile = "$pipePath/AP_project";
+    if(!-e $projectFile){
+        print "PIPELINE_GLITCH: $projectFile not found\n";
+        return %ppdict;
+    }
+    open(AP, "< $projectFile");
     while(<AP>){
         if(/=/){
             chop;

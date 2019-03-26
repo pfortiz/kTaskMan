@@ -329,6 +329,7 @@ sub getFreeMemoryInMB(){
         print "fix in \$HOME/.automatedProcessing\n";
         exit();
     }
+    print "Free memory at this moment: $freedom\n";
     return $freedom;
 }
 

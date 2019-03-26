@@ -281,8 +281,12 @@ if($basePath eq ""){
 chop($basePath);
 
 #chop($basePath);
+print "BASEPATH: $basePath\n";
 %legos = &locateTBlegos($legoPath, $basePath);
 %pipeDefs = &getPipelineDefs($basePath);
+foreach $pnk (keys %pipeDefs){
+    print "PIPE-DEF: $pnk = $pipeDefs{$pnk}\n";
+}
 $projectName = $pipeDefs{"projectName"};
 
 $init = 0;
@@ -443,6 +447,7 @@ while(<P>){
         $value =~ s/^\s*//;
         $value =~ s/\s*$//;
         $defs{$key} = $value;
+        print "Defining: $key, $value\n";
     } elsif(/:/){
 #        print "Line: $_\n";
         @parts = split;
@@ -478,6 +483,11 @@ while(<P>){
     }
 }
 close(P);
+
+$logsStructure = $defs{"logs_structure"};
+$logsBasePath = $defs{"logs_base"};
+
+print "LOG structure: $logsStructure at $logsBasePath\n";
 
 # DEBUG only:
 foreach $k (keys %defs){ print "defs[ $k ] = $defs{$k}\n"; }
@@ -609,6 +619,8 @@ foreach $_ (@tmLines){
 
     $walltime{$task} = shift(@parts);
     $maxmem{$task} = shift(@parts);
+    $mmem = $maxmem{$task};
+    print "Max memory request: $task $mmem\n";
     $maxFailures{$task} = shift(@parts);
     $atTheMost = shift(@parts);
     if($atTheMost eq "*"){
@@ -725,7 +737,7 @@ foreach $tml (@tmLines){
 # added July 8, 2017 to handle tasks with extra dimensions differently
 #exit;
 
-$snooze = $defs{"snoozeInSecods"};
+$snooze = $defs{"snoozeInSeconds"};
 if($snooze eq ""){
     $snooze = 20;
 }
@@ -841,6 +853,7 @@ if ($site eq "nonParallel"){
 #            %logsById = %{$pointers[3]};
         }
     
+# non-parallel
         $currentTime = time;
     
     
@@ -886,9 +899,6 @@ if ($site eq "nonParallel"){
             $C_smday = sprintf("%02d", $C_mday);
             $DATE = "${C_year}-${C_smon}-$C_smday";
             
-#            print "basePath: $basePath\n";
-#            print "pipelinesDir $pipelinesDir\n";
-#            next;
             $execsPath = $defs{"execsPath"};
             $pyexecsPath = $defs{"pythonExecsPath"};
             
@@ -897,14 +907,31 @@ if ($site eq "nonParallel"){
             # scattered all around
             # I want a top-directory, then the date structure, followed by
             # the task-name
-            $dateStruct = "$C_year/$C_smon/$C_smday";
-            $dailyDir = "$topDir/$dateStruct/$projectName";
-            $tracersDir = "$dailyDir/$Iam";
-            $dailyTracer = "$tracersDir/${projectName}_${DATE}.log";
+#$logsStructure = $defs{"logs_structure"};
+#$logsBasePath = $defs{"logs_base"};
+            if($logsStructure eq "tree"){
+                print "In tree mode:";
+                $dateStruct = "$C_year/$C_smon/$C_smday";
+#                $dailyDir = "$logsBasePath/$dateStruct/$projectName";
+                $dailyDir = "$logsBasePath/$dateStruct";
+                $tracersDir = "$dailyDir/$Iam";
+                $tracersDir = "$dailyDir";
+                $dailyTracer = "$tracersDir/${projectName}_${DATE}_${Iam}.log";
+            } else {
+                print "In flat mode:";
+#                $dateStruct = "$C_year/$C_smon/$C_smday";
+#                $dailyDir = "$logsBasePath/$dateStruct/$projectName";
+                $dailyDir = "$logsBasePath";
+                $tracersDir = "$dailyDir/$Iam";
+                $tracersDir = "$dailyDir";
+                $dailyTracer = "$tracersDir/${projectName}_${DATE}_${Iam}.log";
+            }
 #            $dailyDir = "$topDir/messages/$C_year/$C_smon/$C_smday";
 #            $tracersDir = "$topDir/processingLogs";
 #            $dailyTracer = "$tracersDir/${DATE}_${projectName}.log";
 
+            # PFO Marz 2019
+            # I want options for the user (me) flat structure or tree
 
             if(!-e $tracersDir){
                 print "Directories to make:\n";
@@ -918,6 +945,8 @@ if ($site eq "nonParallel"){
 #                system("mkdir -p -m 775 $dailyDir");
 #            }
         
+# non-parallel
+
             if($tracingStarted{$dateToProcess} == 0){
                 open(L, ">>$dailyTracer");
                 print L "$DATE $host $Iam $initialTime STARTED  $ltime\n";
@@ -956,14 +985,19 @@ if ($site eq "nonParallel"){
 #                $taskDone = "$tracersDir/$t$uTracer.Done";
 #                $taskRunning = "$tracersDir/$t$uTracer.Running";
 #                $taskFailed = "$tracersDir/$t$uTracer.Failed";
-                $taskDone = "$tracersDir/$t.Done";
-                $taskRunning = "$tracersDir/$t.Running";
-                $taskFailed = "$tracersDir/$t.Failed";
+                $tTrace = "${t}$uTracer";
+                $taskDone = "$tracersDir/$tTrace.Done";
+                $taskRunning = "$tracersDir/$tTrace.Running";
+                $taskFailed = "$tracersDir/$tTrace.Failed";
+                $filesCreated{$taskDone} = 1;
+                $filesCreated{$taskRunning} = 1;
+                $filesCreated{$taskDone} = 1;
     
                 $ttracers = "DONE_TRACER=$taskDone ";
                 $ttracers .= "FAIL_TRACER=$taskFailed ";
                 $ttracers .= "RNNG_TRACER=$taskRunning ";
                 $ttracers .= "DEPO_PATH=$tracersDir";
+#                print "TRACERS ARE: $ttracers\n";
                 $dask = "$t$dateToProcess$uTracer";
                 if($taskDefinition{$dask} eq ""){
                     push @dieAufgaben, $dask;
@@ -1083,6 +1117,7 @@ if ($site eq "nonParallel"){
 
 #                if($taskHasFailed{$dask} == 1) { next; }
     
+# non-parallel
     
                 if($rday ne "*"){
                     if(int($rday) != int($X_mday) ){
@@ -1118,6 +1153,7 @@ if ($site eq "nonParallel"){
 #                print "\t$freeMem Megabytes free in the system\n";
                 if ($freeMem * 0.9 < $maxmem{$t}){
                     print "Task $dask deferred waiting for more memory\n";
+                    print "$freeMem v $maxMem{$t}\n";
                     next;
                 }
     
@@ -1400,7 +1436,17 @@ if ($site eq "nonParallel"){
                             $jobId = $processingOutput;
                             chop($jobId);
 #                            print "\tLaunched $t\n\t$commando\n\t$processingOutput\n";
-                            print "\tJOB-ID: $dask $jobId\n";
+#                            print "\tJOB-ID: $dask\n";
+#                            print "RUN_PIPELINE-begin\n$jobId\n";
+#                            print "RUN_PIPELINE-ends\n";
+                            @rpLines = split(/\n/, $processingOutput);
+                            foreach $rpl (@rpLines){
+                                if( $rpl =~ /opened:/){
+                                    $rpl =~ s/I opened: //;
+#                                    print "TO-GET-RID: $rpl\n";
+                                    $filesCreated{$rpl} = 1;
+                                }
+                            }
                             print "\t$dask LAUNCHED\n";
                             $jobsIDs{$dask} = $jobId;
                             $nRunningJobs++;
@@ -1505,7 +1551,7 @@ if ($site eq "nonParallel"){
 
 
 
-} else {
+} else { # For the parallel case
     # this is where the .o and .e files should go
     $dotOdotE = "$topDir/dotO_dotEs";
     if(!-e $dotOdotE){
@@ -2039,6 +2085,13 @@ if ($site eq "nonParallel"){
 
     # do some housekeeping: clean any .o and .e files created by this run
     chdir($dotOdotE);
+}
+
+foreach $created (keys %filesCreated){
+#    print "I created: $created\n";
+    if(-e $created){
+        unlink $created;
+    }
 }
 
 exit;

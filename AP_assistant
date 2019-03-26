@@ -119,10 +119,10 @@ It would be great if you could include $APPATH in the PATH variable.
 
 ADVICE
 }
+$home = $ENV{HOME};
 
 #print "CWD: $cwd, APPATH: $APPATH\n";
 if($cwd eq $APPATH){
-    $home = $ENV{HOME};
     print <<"MESSAGE";
 
 WARNING:
@@ -663,10 +663,12 @@ if($inFile eq "-create-bb-sample"){
                     print "IMPORTED: $_ $tn $xpath\n";
                     $pfile = "$xpath/AP_project";
                     if(-e $pfile){
-                        open (J, "<$pfile");
-                        $pname = <J>;
-                        chop($pname);
-                        close(J);
+                        %pipeDefs = &getPipelineDefs($xpath);
+                        $pname = $pipeDefs{"projectName"};
+#                        open (J, "<$pfile");
+#                        $pname = <J>;
+#                        chop($pname);
+#                        close(J);
                         print "Project name: $pname\n";
                     } else {
                         print "Project file $pfile not found\n";
@@ -792,11 +794,11 @@ print FF "# is provided as a file. See examples or documentation.\n";
 #                    $tagParallel = "local";
                     $tagLocal = "local";
                     $tagParallel = "parallel";
-                    $tagSubmit = "local-bg NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES"
+                    $tagSubmit = "local-bg NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES"
                 } else {
                     $tagLocal = "local";
                     $tagParallel = "parallel";
-                    $tagSubmit = "qsub NOWAIST RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES"
+                    $tagSubmit = "qsub NOWAIST AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES"
                 }
 
                 # this way we insure that if we introduce new types, code
@@ -978,8 +980,20 @@ INSTRUCTIONS
 
         print TM "snoozeInSeconds = 5\n";
         print TM "NRT_time_delay_in_days = 4\n\n";
+        print TM "# change according to your taste\n";
+        print TM "logs_structure = tree\n";
+        print TM "#logs_structure = flat\n";
+        print TM "logs_base = $home/path/to/tree-base\n";
+        print TM "#logs_base = $home/flaties\n\n\n";
 #        *TM = STDOUT;
         undef @pipeDirs;
+        $apFile = "AP_project";
+        $p_name = $inFile;
+        $p_name =~ s/\.ff//;
+        open(AP, ">$apFile");
+        print AP "projectName=$p_name\n";
+        close(AP);
+
         $pipes = "";
         foreach $t (@lot){
             print "Working my ass off in $t\n";
@@ -1581,7 +1595,7 @@ $tn.parameters.end
 $tn.$tagLocal.begin
 # you can edit lines below this one
 echo about to submit the processing pipeline to the grid
-#crapola qsub NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
+#crapola qsub NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
 $tagSubmit
 # you can edit lines above this one
 $tn.$tagLocal.end
@@ -1625,6 +1639,7 @@ sub bbud(){
     $argstodef = "";
     $argString = "";
     $blockName = "";
+    $tbexec = "HOME=$home\n";
     if(/TB_/){
         @pp = split(/-/);
         print "$tn is a lego block\n";
@@ -1632,6 +1647,9 @@ sub bbud(){
         $ppath = $legos{$blockName};
 #        $argString = $ppath;
         print "path: $ppath\n";
+        $modPath = $ppath;
+        $modPath =~ s/$home/HOME/;
+        $tbexec .= "TB_EXEC = $modPath";
         open(P, "$ppath mode=pipeParams|");
         while(<P>){
             $pipeparams .= $_;
@@ -1653,10 +1671,10 @@ sub bbud(){
         close(P);
         open(P, "$ppath mode=showLines|");
         while(<P>){
-#            if(/THE_ARGUMENTS/){
-##                print "MUST SUBSTITUTE THE_ARGUMENTS for $argString\n";
-#                $_ =~ s/THE_ARGUMENTS/$argString/;
-#            }
+            if(/THE_ARGUMENTS/){
+#                print "MUST SUBSTITUTE THE_ARGUMENTS for $argString\n";
+                $_ =~ s/THE_ARGUMENTS/$argString/;
+            }
             $linestorun .= $_;
         }
         close(P);
@@ -1668,6 +1686,7 @@ $tn.atMost=*
 
 $tn.parameters.begin
 # you can edit lines below this one
+$tbexec
 $pipeparams# you can edit lines above this one
 
 # arguments for $blockName
@@ -1696,7 +1715,7 @@ FF_FILE
 # $tn.$tagLocal.begin
 # # you can edit lines below this one
 # echo about to submit the processing pipeline to the grid
-# qsub NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
+# qsub NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
 # # you can edit lines above this one
 # $tn.$tagLocal.end
 
@@ -1706,6 +1725,7 @@ $tn.maxFails=5
 $tn.atMost=*
 $tn.parameters.begin
 # you can edit lines below this one
+$tbexec
 $pipeparams# you can edit lines above this one
 
 # arguments for $blockName
@@ -1717,7 +1737,7 @@ $tn.parameters.end
 $tn.$tagLocal.begin
 # you can edit lines below this one
 echo about to submit the processing pipeline to the grid
-#crapola qsub NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
+#crapola qsub NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
 $tagSubmit
 # you can edit lines above this one
 $tn.$tagLocal.end
@@ -1814,7 +1834,7 @@ if ($tn.dest_path) missing then
 endif
 sexec X_WRAPPER "rsync ($tn.rsync_flags) --include ($tn.pattern) ($tn.source_path) ($tn.dest_path)" DONE_TRACER &
 # uncomment the next line if you can run rsync from the nodes
-# qsub NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave
+# qsub NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave
 $tn.$tagLocal.end
 
 $tn.$tagParallel.begin
@@ -1847,7 +1867,7 @@ $tn.parameters.end
 $tn.$tagLocal.begin
 # you can edit lines below this one
 echo about to submit the processing pipeline to the grid
-#crapola qsub NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
+#crapola qsub NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
 $tagSubmit
 # you can edit lines above this one
 $tn.$tagLocal.end
@@ -1905,7 +1925,7 @@ LOG_FILE = DAILY_PATH/verify_PRODUCT_CODE_YYY_SMM_SDD.log
 $tn.parameters.end
 
 $tn.$tagLocal.begin
-#crapola qsub NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
+#crapola qsub NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
 $tagSubmit
 $tn.$tagLocal.end
 
@@ -1948,7 +1968,7 @@ $tn.parameters.end
 
 $tn.$tagLocal.begin
 echo about to submit the processing pipeline to the grid
-#crapola qsub NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
+#crapola qsub NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
 $tagSubmit
 $tn.$tagLocal.end
 
@@ -1991,7 +2011,7 @@ $tn.parameters.end
 
 $tn.$tagLocal.begin
 echo about to submit the processing pipeline to the grid
-#crapola qsub NOWAIT RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
+#crapola qsub NOWAIT AP_RUNPIPELINE thisPipe YYY-SMM-SDD -exec -slave CL_VARIABLES
 $tagSubmit
 $tn.$tagLocal.end
 

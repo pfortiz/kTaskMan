@@ -724,6 +724,8 @@ if(!-e $pipelineFile){
     die "$pipelineFile does not exist. Nicht hier.\n";
 }
 
+print "RP-pipelineFile: $pipelineFile\n";
+
 
 #extract TAG only
 open(P, "<$pipelineFile");
@@ -741,6 +743,7 @@ if($TAG eq ""){
     $TAG = "pid-$$";
 }
 
+print "\nRP-tag: $TAG\n";
 
 # some disposable files go to scratch
 $topDir .= "/$TAG";
@@ -817,8 +820,15 @@ while(<P>){
     if(/#/){ next; }
     if(length($_) == 0){ next;}
     if(/--PARAMETERS/){ next; }
-    if(/--TASKS/){ last; }
-    ($key, $eq, $val)  = split;
+    if(/--TASKS/){ last; } # this section only analyses the perameters
+    if(/=/){
+        ($key, $val) = split(/=/);
+        $key =~ s/ *$//;
+        $val =~ s/^ *//;
+#        print "Just checking: |$key|$val|\n";
+    } else {
+        ($key, $eq, $val)  = split;
+    }
     $dvars{$key} = 1;
     if($timeMode eq "daily" or $timeMode eq "date-range"){
         $val =~ s/YYY/$year/g;
@@ -887,6 +897,8 @@ if($clrunid ne ""){
 #print STDERR "Emma, DONE_TRACER = $DONE_TRACER\n";
 #print STDERR "Emma, DEPO_PATH = $DEPO_PATH\n";
 
+#foreach $av (sort keys %activeVars){print "ACTIVE: $av = $activeVars{$av}\n"; }
+
 $times = time;
 $times = "";
 #$RESULTS_PATH = $apDict{"runPipelinePath"};
@@ -908,9 +920,11 @@ if($DEPO_PATH eq ""){
         $queuePaths = $resultsPath;
     }
 } else {
+
     $resultsPath = "$DEPO_PATH";
     $local = $resultsPath;
     $queuePaths = $resultsPath;
+    print "DEPO_PATH-local: $local\n";
 }
 
 #print STDERR "Results-path: $resultsPath\n";
@@ -922,6 +936,7 @@ if(!-e $resultsPath){
 $scratch = "$resultsPath/${procedureId}/scratch";
 $scratchRoot = "$scratch/${procedureId}_$pid";
 $logFile = "$resultsPath/${procedureId}_$times.log";
+$Iopened{$logFile} = 1;
 
 #exit;
 
@@ -1395,11 +1410,24 @@ if ($showVariables == 1){
     exit;
 }
 
+# shall we try to redefine the activeVars for occurances of other
+# variables?
+
+foreach $avk (keys %activeVars){
+    $laVar= $activeVars{$avk};
+    foreach $avka (keys %activeVars){
+        $lavaca = $activeVars{$avka};
+        $laVar =~ s/$avka/$lavaca/;
+    }
+    $activeVars{$avk} = $laVar;
+}
+
 undef %revTasks;
 $tt = 0;
 $inLoop = 0;
 #print LOG "\n$ts tasks execution:\n";
 for( $tt = 0; $tt < $nTasks; $tt++){
+    $stepo = $tt;
     $tid = $tasks[$tt];
     $revTasks{$tid} = $tt;
     # ignore tasks marked as not active by action=SKIP
@@ -2195,6 +2223,12 @@ for( $tt = 0; $tt < $nTasks; $tt++){
         if($versyntax == 1){ next; }
         if($execute == 1){
             print LOG "$ts $tid  \"$tSteps\" \n";
+#            print "executing: $tSteps\n";
+#            print "Active variables:\n";
+#            foreach $kkkeys (keys %activeVars){
+#                print "$kkkeys = $activeVars{$kkkeys}\n";
+#            }
+
             system ("$tSteps");
         } else {
             print LOG "$ts $tid  \"$tSteps\"  in test mode\n";
@@ -2213,8 +2247,11 @@ for( $tt = 0; $tt < $nTasks; $tt++){
         # The pipeline has no control on how to control this, unless we
         # create  a shell script and add a touch to a verifyier, like we
         # did with the parallel
+
         if(!-e $local){ system("mkdir -p -m 775 $local"); }
-        $shellFile = "$local/${procedureId}_${stepo}.sh";
+#        $shellFile = "$local/${procedureId}_${stepo}.sh";
+        $shellFile = "$local/${procedureId}_${tt}.sh";
+        $Iopened{$shellFile} = 1;
 #        print "shellFile=$shellFile\n";
         open(S, ">$shellFile");
 #        print S "$tSteps\n";
@@ -2327,6 +2364,10 @@ close(LOG);
 if($qsubMsg eq "" and $slave != 1){
     print STDERR "$ts $pipelineFile FINE\n";
     print STDERR "$me $procedureId concluded\n";
+}
+
+foreach $ope (keys %Iopened){
+    print "I opened: $ope\n";
 }
 
 exit;
