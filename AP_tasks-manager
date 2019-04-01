@@ -447,7 +447,7 @@ while(<P>){
         $value =~ s/^\s*//;
         $value =~ s/\s*$//;
         $defs{$key} = $value;
-        print "Defining: $key, $value\n";
+#        print "Defining: $key, $value\n";
     } elsif(/:/){
 #        print "Line: $_\n";
         @parts = split;
@@ -490,7 +490,7 @@ $logsBasePath = $defs{"logs_base"};
 print "LOG structure: $logsStructure at $logsBasePath\n";
 
 # DEBUG only:
-foreach $k (keys %defs){ print "defs[ $k ] = $defs{$k}\n"; }
+#foreach $k (keys %defs){ print "defs[ $k ] = $defs{$k}\n"; }
 
 #foreach $xl (@taskLines){ print "XL: $xl\n"; }
 #foreach $twd (keys %hasXdim){ print "$twd needs to open $hasXdim{$twd}\n"; }
