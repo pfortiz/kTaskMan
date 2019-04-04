@@ -232,6 +232,7 @@ tctl_path=$tctl_path
 # The path to where runPipe area is located
 # You can change this path to suit your needs
 historyPath=$basePath/$history
+historyPath=HOME/$history
 
 #---------------------------------------------------------------
 # These definitions deal with parallel processing site-depending
