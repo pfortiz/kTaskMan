@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+# Written for python 2.x, not 3.x
+
+import sys
+import os
+import ozArgs
+
+# add whatever other package you need here
+
+# function to write the status to either a file or stdout
+# 'DONE' must be part of the status line for a successful execution
+# 'DONE' must be absent when a failure occurs
+# 'FAIL' shall be present when a failure occurs
+def logStatus(line):
+    # The script shall produce some information when it has concluded
+    # correctly writing to 'statusFile' or stdout if statusFile is not present
+    try:
+        oFileName = doThis["statusfile"]
+        if oFileName != "stdout":
+            ofile = open(oFileName, "w+")
+            ofile.write(line+"\n")
+            ofile.close()
+    except:
+        print line
+    sys.exit()
+
+nargs = len(sys.argv)
+#me = sys.argv[0]
+args = sys.argv[1:]
+me = sys.argv[0]
+myself = me.split("/")[-1]
+irene = "{}/{}".format(os.getcwd(), myself)
+
+#print me
+#print myself
+#print irene
+
+# basic parameters
+# input arguments:
+iargs = ozArgs.methods(myself, {})
+
+
+# Do not touch at all
+iargs.addMandatoryKV("mode", "what-to-do", "string",
+        "Operation to perform", example="action=exec",
+        pv=[
+            ["describe","Describe this task", ""],
+            ["arguments","show arguments and defaults for this task", ""],
+            ["pipeParams","List the pipe parameters", ""],
+            ["showLines","List the lines to be run in the pipeline", ""],
+            ["exec","Executes this script", ""],
+        ], default="exec")
+
+
+# Change the lines which contain XXX
+
+iargs.addDescription("Free drawing block. It does nothing by itself")
+### Remove or replace the sample lines by the ones you need
+pipeParams = [
+        "DAYPATH= YYY/SMM/SDD",
+        "DAYNAME=YYY_SMM_SDD",
+        "HISTORY_DIR = /Users/pfo/AP_HISTORY",
+        ]
+
+### Remove or replace the sample lines by the ones you need
+linesToRun = [
+        "echo Add any number of lines to run",
+        "sexec touch DONE_TRACER",
+        ]
+
+doThis, fail = iargs.check(args, "")
+if fail:
+    sys.exit()
+
+
+argMode = doThis["mode"]
+    
+# DESCRIPTION BLOCK, activated if the CL argument -describe is present
+if argMode == "describe":
+    iargs.showDescription()
+    sys.exit()
+
+if argMode == "arguments":
+    iargs.showArgs("")
+    sys.exit()
+
+if argMode == "pipeParams":
+    for p in pipeParams:
+        print p
+    sys.exit()
+
+if argMode == "showLines":
+    for p in linesToRun:
+        print p
+    sys.exit()
+
+
+# The execution block. Perform whatever task you need to do, like reading a
+# file, transfering a file, convert a file with some kind of filter, etc.
+
+
+# The pipeline software does require and ending message saying that the
+# operation was successful or if it fails
+# 'DONE' must be part of the status line for a successful execution
+# 'DONE' must be absent when a failure occurs
+# 'FAIL' shall be present when a failure occurs
+
+statusLine = "DONE with flying colours"
+logStatus(statusLine)
+
