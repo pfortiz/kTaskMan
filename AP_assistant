@@ -64,6 +64,14 @@ $site = $apDict{"site"};
 
 $isParallel = $apDict{"parallel"};
 
+print "IsParallel = $isParallel\n";
+if($isParallel == 0){
+    $theMaxMemory = 199;
+} else {
+    $theMaxMemory = 9999;
+}
+
+print "Max-memory: $theMaxMemory\n";
 $navail = &getNavailableProcesses(%apDict);
 
 @lp = split("",$legoPath);
@@ -778,7 +786,7 @@ if($inFile eq "-create-bb-sample"){
                 print FF "$tn.dependencies=$tDependencies\n";
 #                print FF "## taty = $taty\n";
 #                if($taty ne "spwn"){
-                    print FF "$tn.maxMemory=9999\n";
+                    print FF "$tn.maxMemory=$theMaxMemory\n";
                     print FF "$tn.wallTime=3.14\n";
 #                }
                 print FF "$tn.timeRestrictions=*/*/*/*\n";
@@ -1345,7 +1353,7 @@ TIMERESTRICTIONS=
 # megabytes.
 # No default value is assumed
 # Even small tasks may need several gigabytes of memory. I nominally use 9999
-MAXMEMORY=9999
+MAXMEMORY=$theMaxMemory
 
 # The maximum execution time to request when running the process in
 # parallel expressed in decimal hours. The dedicated software will convert

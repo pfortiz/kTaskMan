@@ -59,7 +59,7 @@ iargs.addDescription("Free drawing block. It does nothing by itself")
 pipeParams = [
         "DAYPATH= YYY/SMM/SDD",
         "DAYNAME=YYY_SMM_SDD",
-        "HISTORY_DIR = /Users/pfo/AP_HISTORY",
+        "HISTORY_DIR = HOME/AP_HISTORY",
         ]
 
 ### Remove or replace the sample lines by the ones you need
