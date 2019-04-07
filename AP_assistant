@@ -73,6 +73,8 @@ if($isParallel == 0){
 
 print "Max-memory: $theMaxMemory\n";
 $navail = &getNavailableProcesses(%apDict);
+print "Available processes $navail \n\n";
+
 
 @lp = split("",$legoPath);
 
@@ -243,6 +245,10 @@ if($inFile eq "-create-TaskBlock"){
 
 import sys
 import os
+
+essentials = os.environ['OZSENTIALS']
+sys.path.append(essentials)
+
 import ozArgs
 
 # add whatever other package you need here
@@ -467,8 +473,9 @@ if($inFile eq "-create-bb-sample"){
             if(/^#/ or $_ eq "" or !/:/) { next; }
             $line = $_;
             push @original_bb_lines, $line;
-            @parts = split;
+            @parts = split(/:/);
             $tn = shift(@parts);
+            print "BB-task: $tn\n";
             $tn =~ s/://;
             $_ = $tn;
             if(/\//){ # this is a path, we need just the last part
@@ -630,6 +637,7 @@ if($inFile eq "-create-bb-sample"){
             }
         } else { # file does not exist at all
             # all tasks read from bb are elligible!
+            print "No FF exists\n";
             @newBBtasks = @original_bb_lines;
             open(FF, ">$outFile");
 #        *FF = STDOUT;
@@ -656,6 +664,7 @@ if($inFile eq "-create-bb-sample"){
 #            chop;
             if(/^#/ or $_ eq "" or !/:/) { next; }
             @parts = split;
+            @parts = split(/:/);
             $tn = shift(@parts);
             $tn =~ s/://;
             print "Task name:$tn\n";

@@ -88,15 +88,16 @@ sub appendLegoPath(){
         close(RC);
     }
 
-    $argsPython = "ozArgs.py";
-    if(-e $argsPython){
-        print "$argsPython Exists\n";
-    } else {
-        print "$argsPython Missing. Will copy\n";
-#        print "cp $appath/essentials/$argsPython .\n";
-#        system "cp $appath/essentials/$argsPython .";
-        system "cp $appath/$argsPython .";
-    }
+#   No need to do this, we add its path to the right project
+#    $argsPython = "ozArgs.py";
+#    if(-e $argsPython){
+#        print "$argsPython Exists\n";
+#    } else {
+#        print "$argsPython Missing. Will copy\n";
+##        print "cp $appath/essentials/$argsPython .\n";
+##        system "cp $appath/essentials/$argsPython .";
+#        system "cp $appath/$argsPython .";
+#    }
 }
 
 # This routine creates the .rc file based on the system it is in.
@@ -272,7 +273,13 @@ RUNPIPELINERC
 sub getNavailableProcesses(){
     my %dict = @_[0];
     my $uname = $ENV{USER};
-    my $maxProcesses = `ulimit -u`;
+    my $maxProcesses;
+    $maxProcesses = `ulimit -u`;
+    if($maxProcesses eq ""){
+        $maxProcesses = qx{echo `ulimit -n`};
+    }
+#    print "GETNAV-1: $maxProcesses \n";
+
     chop $maxProcesses;
     my $activeProcesses = 0;
     open(P, "ps -e -o user|");
@@ -282,7 +289,9 @@ sub getNavailableProcesses(){
         }
     }
     close(P);
+#    print "GETNAV-1: $maxProcesses | $activeProcesses\n";
     my $availableProcesses = $maxProcesses - $activeProcesses;
+#    print "GETNAV-3: $availableProcesses\n";
     return $availableProcesses;
 }
 
