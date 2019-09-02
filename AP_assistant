@@ -75,6 +75,7 @@ print "Max-memory: $theMaxMemory\n";
 $navail = &getNavailableProcesses(%apDict);
 print "Available processes $navail \n\n";
 
+%replace = {};
 
 @lp = split("",$legoPath);
 
@@ -158,7 +159,7 @@ Usage: AP_assistant
 Usage: AP_assistant -create-sample-TB-arguments
 Usage: AP_assistant -create-TaskBlock TB_name file-with-TB-arguments
 Usage: AP_assistant -create-bb-sample name
-Usage: AP_assistant bb-file
+Usage: AP_assistant bb-file [[DEFINITION=something]... ]
 Usage: AP_assistant ff-file
 
 The simplest way to start is for you to write a bare-bones file (bb file)
@@ -466,6 +467,15 @@ if($inFile eq "-create-bb-sample"){
         $error = 0;
         $project_name = $inFile;
         $project_name =~ s/\.bb//;
+        foreach $arg (@ARGV){
+            if(index($arg, "=") != -1){
+                @ap = split /=/, $arg;
+                $replace{$ap[0]} = $ap[1];
+            }
+        }
+        foreach $key (keys %replace){
+            print "Replacing $key =with= $replace{$key}\n";
+        }
         # we work from a bare-bone file
         open(BB, "<$inFile");
         while(<BB>){
@@ -788,6 +798,7 @@ if($inFile eq "-create-bb-sample"){
                     next;
                 }
             } else { 
+                print "In this branch\n";
                 ($taty,@other) = split(/-/,$tn,2);
     
                 print FF "\ntask=$tn\n";
@@ -821,7 +832,7 @@ print FF "# is provided as a file. See examples or documentation.\n";
                 # this way we insure that if we introduce new types, code
                 # needs to be present for them
                 $preUS = $_;
-                &$ff_taty($tn);
+                &$ff_taty($tn, %replace);
                 $_ = $preUS;
 
 #                if($taty eq "proc" ){ } 
@@ -1649,6 +1660,8 @@ FF_FILE
 }
 
 sub bbud(){
+    $tnn = @_[0];
+#    %replace = @_[1];
     my $_ = $tn;
     print "BBUD: $_\n";
     $pipeparams = "";
@@ -1660,6 +1673,10 @@ sub bbud(){
     if(/TB_/){
         @pp = split(/-/);
         print "$tn is a lego block\n";
+#        print "Replacements\n";
+#        for $rk (keys %replace){
+#            print "$rk, $replace{$rk}\n";
+#        }
         $blockName = $pp[0];
         $ppath = $legos{$blockName};
 #        $argString = $ppath;
@@ -1669,7 +1686,17 @@ sub bbud(){
         $tbexec .= "TB_EXEC = $modPath";
         open(P, "$ppath mode=pipeParams|");
         while(<P>){
-            $pipeparams .= $_;
+            @pp = split(/=/);
+            $argName = $pp[0];
+            $argName =~ s/ //g;
+#            $argName = uc($argname);
+#            print "PAR: $argName\n";
+            if($replace{$argName} eq ""){
+                $pipeparams .= $_;
+            } else {
+                $argValue = $replace{$argName};
+                $pipeparams .= "$argName = $argValue\n";
+            }
         }
         close(P);
         open(P, "$ppath mode=arguments|");
@@ -1677,7 +1704,12 @@ sub bbud(){
             @pp = split();
             $argname = $pp[0];
             $argName = uc($argname);
-            $argValue = $pp[1];
+#            print "ARG: $argName\n";
+            if($replace{$argName} eq ""){
+                $argValue = $pp[1];
+            } else {
+                $argValue = $replace{$argName};
+            }
             if($argValue eq "None"){ $argValue = ""; }
 
             $aname = "${blockName}_$argName";
