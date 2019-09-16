@@ -158,6 +158,7 @@ if($#ARGV < 0){
 Usage: AP_assistant
 Usage: AP_assistant -create-sample-TB-arguments
 Usage: AP_assistant -create-TaskBlock TB_name file-with-TB-arguments
+Usage: AP_assistant -create-project <project-name>
 Usage: AP_assistant -create-bb-sample name
 Usage: AP_assistant bb-file [[DEFINITION=something]... ]
 Usage: AP_assistant ff-file
@@ -449,6 +450,24 @@ THE_SAMPLE
     exit;
 }
 
+if($inFile eq "-create-project"){
+    if($nargs == 2){
+        $projectName = shift(@ARGV);
+    } else {
+        $projectName = "generic";
+    }
+    if(-e $projectName){
+        die "project $projectName already exists. Quiting\n\n";
+    }
+    system("mkdir -p -m 775 $projectName");
+    open(AP, "> $projectName/AP_project");
+    print AP "projectName=$projectName\n";
+    close(AP);
+    $fileName = "$projectName/$projectName.bb";
+    &createBBsample($fileName);
+    exit;
+}
+   
 if($inFile eq "-create-bb-sample"){
     if($nargs == 2){
         $fileName = shift(@ARGV);
