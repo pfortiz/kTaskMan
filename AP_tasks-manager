@@ -180,6 +180,7 @@ print "I am $0 (a.k.a. $me)\n";
 print "I live in $ppath\n";
 
 $fullRunPipeline = sprintf("%s/AP_runPipeline", $packagePath);
+print "FullRunPipeline: $fullRunPipeline\n";
 #$fullRunPipeline = sprintf("%s/%s/AP_runPipeline", $apDict{"basePath"}, $apDict{"appath"});
 
 %specialDates = &getValidIntervals();
@@ -419,14 +420,6 @@ if($topDir eq ""){
     $topDir = $basePath;
 }
 
-$pipelinesDir = $defs{"pipelinesDir"};
-if($pipelinesDir eq ""){
-    print "GLITCH: no defs[pipelinesDir] $basePath\n";
-    $pipelinesDir = "$basePath/pipelines";
-}
-
-print "pipelinesDir: $pipelinesDir\n";
-print "uber-path:    $basePath\n";
 print "initFlag: $init\n";
 
 open(P,"<$tmFile");
@@ -483,6 +476,15 @@ while(<P>){
     }
 }
 close(P);
+
+$pipelinesDir = $defs{"pipelinesDir"};
+if($pipelinesDir eq ""){
+    print "GLITCH: no defs[pipelinesDir] $basePath\n";
+    $pipelinesDir = "$basePath/pipelines";
+}
+
+print "pipelinesDir: $pipelinesDir\n";
+print "uber-path:    $basePath\n";
 
 $logsStructure = $defs{"logs_structure"};
 $logsBasePath = $defs{"logs_base"};
@@ -1371,7 +1373,7 @@ if ($site eq "nonParallel"){
 #                    print "PLP: $fullRunPipeline\n";
                     $commando =~ s/^runPipeline/$fullRunPipeline/;
                     $_ = $commando;
-#                    print "\nCOMMANDO3  = ", $commando, "\n";;
+                    print "\nCOMMANDO3  = ", $commando, "\n";;
                     @cparts = split;
                     $laDate = pop(@cparts);
                     $pname = pop(@cparts);

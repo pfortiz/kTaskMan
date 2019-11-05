@@ -2252,7 +2252,7 @@ for( $tt = 0; $tt < $nTasks; $tt++){
 #        $shellFile = "$local/${procedureId}_${stepo}.sh";
         $shellFile = "$local/${procedureId}_${tt}.sh";
         $Iopened{$shellFile} = 1;
-#        print "shellFile=$shellFile\n";
+#        print "AP_runPipeline shellFile=$shellFile\n";
         open(S, ">$shellFile");
 #        print S "$tSteps\n";
         if($DELAY eq "WAIT"){

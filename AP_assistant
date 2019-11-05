@@ -1021,17 +1021,29 @@ INSTRUCTIONS
         }
         $outFile = $inFile;
         $outFile =~ s/\.ff/.tm/;
+        $shadowFile = "sh_$outFile";
         $today = localtime;
         print "About to open: $outFile\n";
         open(TM, ">$outFile");
 
         print TM "snoozeInSeconds = 5\n";
         print TM "NRT_time_delay_in_days = 4\n\n";
+        print TM "pipelinesDir = $cwd/pipelines\n\n";
         print TM "# change according to your taste\n";
         print TM "logs_structure = tree\n";
         print TM "#logs_structure = flat\n";
-        print TM "logs_base = $home/path/to/tree-base\n";
-        print TM "#logs_base = $home/flaties\n\n\n";
+        print TM "#logs_base = $home/path/to/tree-base\n";
+        print TM "logs_base = $home/ktmLogs\n\n\n";
+
+        open(SH, ">$shadowFile");
+        print SH "snoozeInSeconds = 5\n";
+        print SH "NRT_time_delay_in_days = 4\n\n";
+        print SH "pipelinesDir = $cwd/shadows\n\n";
+        print SH "# change according to your taste\n";
+        print SH "logs_structure = tree\n";
+        print SH "#logs_structure = flat\n";
+        print SH "#logs_base = $home/path/to/tree-base\n";
+        print SH "logs_base = $home/ktmShLogs\n\n\n";
 #        *TM = STDOUT;
         undef @pipeDirs;
         $apFile = "AP_project";
@@ -1042,6 +1054,7 @@ INSTRUCTIONS
         close(AP);
 
         $pipes = "";
+        $spipes = "";
         foreach $t (@lot){
             print "Working my ass off in $t\n";
             $tty = $ffdict{"$t.type"};
@@ -1072,15 +1085,24 @@ INSTRUCTIONS
             print TM "$t: $ttr $twt $txm $tmf $tam $txd ktm_$t $tdp\n";
             print TM "ktm_$t = runPipeline $t DATE\n\n";
 
+            print SH "$t: $ttr $twt $txm $tmf $tam $txd ktm_$t $tdp\n";
+            print SH "ktm_$t = runPipeline $t DATE\n\n";
+
             $dire = "$cwd/pipelines/$t";
             $pipes .= "pipelines/$t\n";
             if(!-e $dire){
                 system("mkdir -p -m 775 $dire");
             }
+            $sdire = "$cwd/shadows/$t";
+            $spipes .= "shadows/$t\n";
+            if(!-e $sdire){
+                system("mkdir -p -m 775 $sdire");
+            }
             # nothing special to do in the case of a spwn
             if(($tty eq "proc" or $tty eq "spwn") and $tor eq "local"){
                 if(-e $tcf){
                     system("cp $tcf $dire");
+                    system("cp $tcf $sdire");
                 } else {
                     print "WARNING: template control file not found\n$tcf\n";
                 }
@@ -1089,12 +1111,14 @@ INSTRUCTIONS
                     open(P,">$file");
                     print P "$tpr\n";
                     close(P);
+                    system("cp $file $sdire");
                 } else {
                     print "WARNING: processor not found\n$tpr\n";
                     $file = "$dire/PROCESSOR";
                     open(P,">$file");
                     print P "/dev/no-such-processor\n";
                     close(P);
+                    system("cp $file $sdire");
                 }
             }
             if($tty eq "dlftp" or $tty eq "ulftp"){
@@ -1111,6 +1135,7 @@ INSTRUCTIONS
                 } else {
                     print "Not overwriting $file, it was imported\n";
                 }
+                system("cp $file $sdire");
             }
         # in all cases I need to create stubs for runPipeline
 
@@ -1120,19 +1145,25 @@ INSTRUCTIONS
                 print PARAM "$tpm\n";
                 close(PARAM);
             }
+            system("cp $file $sdire");
             $file = "$dire/local.rpl";
             if(!-e $file){
                 open(LOCAL, ">$file");
                 print LOCAL "$tlc\n";
                 close(LOCAL);
             }
+            system("cp $file $sdire");
             $file = "$dire/in_parallel.rpl";
             if(!-e $file){
                 open(PARLL, ">$file");
                 print PARLL "$tpl\n";
                 close(PARLL);
             }
+            system("cp $file $sdire");
             chdir($dire);
+            print "$mkplfiles parameters.rpl local.rpl in_parallel.rpl $twt $txm\n";
+            system("$mkplfiles parameters.rpl local.rpl in_parallel.rpl $twt $txm");
+            chdir($sdire);
             print "$mkplfiles parameters.rpl local.rpl in_parallel.rpl $twt $txm\n";
             system("$mkplfiles parameters.rpl local.rpl in_parallel.rpl $twt $txm");
             chdir($cwd);
