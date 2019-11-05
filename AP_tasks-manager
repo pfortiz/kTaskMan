@@ -1953,11 +1953,11 @@ if ($site eq "nonParallel"){
                     if(/^\//){
                         $dailyPl = $_;
                     } else {
-                        $pldir = "$topDir/pipelines/$pname";
+                        $pldir = "$topDir/$pipelinesDir/$pname";
                         if(!-e $pldir){
                             system("mkdir -p -m 775 $pldir");
                         }
-                        $dailyPl = "$topDir/pipelines/$pname/$pname.main";
+                        $dailyPl = "$pipelinesDir/$pname/$pname.main";
         #                $pldir = "$pipelinesDir/$pname";
         #                $dailyPl = "$pipelinesDir/$pname/$pname.main";
         #                if(!-e $dailyPl){
