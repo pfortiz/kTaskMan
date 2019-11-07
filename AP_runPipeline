@@ -2223,7 +2223,7 @@ for( $tt = 0; $tt < $nTasks; $tt++){
         if($versyntax == 1){ next; }
         if($execute == 1){
             print LOG "$ts $tid  \"$tSteps\" \n";
-#            print "executing: $tSteps\n";
+            print "APR sexec: $tSteps\n";
 #            print "Active variables:\n";
 #            foreach $kkkeys (keys %activeVars){
 #                print "$kkkeys = $activeVars{$kkkeys}\n";

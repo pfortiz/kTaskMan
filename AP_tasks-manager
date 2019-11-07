@@ -1426,13 +1426,14 @@ if ($site eq "nonParallel"){
                     $commando = "@cparts $dailyPl $laDate $addec $suffix";
 #                    print "Emma this one: $commando\n"; 
 #                    print "dailyPl  = $dailyPl\n";
-#                    print "COMMANDO4  = ", $commando, "\n";
+                    print "COMMANDO4  = ", $commando, "\n";
 #                    print "$taskStatus $t \@ $timo | $commando | $tusk\n";
     
 #                print "About to launch: $commando\n";
                     if(-e $dailyPl){
                         if($dummyRun == 0){
                             $processingOutput = `$commando`;
+                            print "kTM: $processingOutput\n";
                             $nActiveTasks{$t}++;
                             $nexec{$dask}++;
                             $jobId = $processingOutput;
@@ -2090,7 +2091,7 @@ if ($site eq "nonParallel"){
 }
 
 foreach $created (keys %filesCreated){
-#    print "I created: $created\n";
+    print "aptm: I created: $created\n";
     if(-e $created){
         unlink $created;
     }
