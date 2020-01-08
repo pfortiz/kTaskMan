@@ -1,0 +1,487 @@
+#!/usr/bin/perl
+
+# This is a wrapper for the AP_tasks-manager in order to execute a pipeline
+# one day at a time, rather than having all tasks running at the same time.
+#
+# The reason to do this is to avoid clogging a site holding data with way
+# too many requests, which will effectively mimic a DDoS, targetting a site
+# with way too many requests.
+#
+# Author: Patricio F. Ortiz
+# Date:   January 8, 2020
+#
+
+
+
+use Time::Local;
+use Date::Parse;
+
+# no strict, I need black magic
+# use strict;
+
+# inclusions to deal with time functions. I need to know the number of days
+# in a calendar month, and that depends on whether the year is leap or normal
+#
+
+my $packagePath;
+my %apDict;
+
+BEGIN{ 
+    my @parts = split(/\//, $0);
+    pop @parts;
+    my $myPath = join("/", @parts);
+    $packagePath = $myPath;
+}
+
+use lib "$packagePath";
+use ap_timex;
+use ap_system_dependencies;
+use ap_predef;
+
+%apDict = &getFromRc($rcfile);
+foreach $_ (keys %apDict){
+    $$_ = $apDict{$_};
+}
+
+
+$waitTime = 60; # sleep time of 1 minute
+
+my @monthsInWords = qw(nothing January February March April May June July August September October November December);
+
+my $scripto = $0;
+my @parts = split(/\//, $0);
+my $me = pop(@parts);
+my $farg = @ARGV[0];
+my $ppath = join('/', @parts);
+print "I am $0 (a.k.a. $me)\n";
+print "I live in $ppath\n";
+
+$fullTasksManager = sprintf("%s/AP_tasks-manager", $packagePath);
+$fullRunPipeline  = sprintf("%s/AP_runPipeline", $packagePath);
+
+if(!-e $fullTasksManager){
+    die "FUBAR: $fullTasksManager does not exist\n\n";
+}
+
+%specialDates = &getValidIntervals();
+
+if($#ARGV ==  0 and $farg eq "-init"){
+    &create_td_sample_and_readme();
+    exit;
+} elsif ($#ARGV ==  0 and $farg eq "-createStubs"){
+    &makeStubs();
+    exit;
+} elsif($#ARGV < 1){
+#    foreach $_ (keys %apDict){ print "A-P dictionary: $_ $apDict{$_}\n"; }
+#    print "Usage:  $me -init\n";
+#    print "Usage:  $me -createStubs\n";
+#
+#   Note that extraDim as defined in the command line affects all tasks.
+    print <<"USAGE";
+Usage:  $me tasks-to-run-file date-definitions [extraDim=filename] [-dummyRun]
+
+date-definitions take the form: YYYY-MM-DD[:YYYY-MM-DD] or other forms of
+date ranges. Use "test_dateString" to explore all possibilities
+
+date-definitions can also be:
+USAGE
+    foreach $k (sort keys %specialDates){
+        if($specialDates{$k} == 1){ # only main words are listed here
+            print "\t$k\n";
+        }
+    }
+    exit;
+}
+
+$killMe = "./kill_$me";
+$Iam = $$;
+open(K, ">$killMe");
+print K "# use: bash $killMe\n";
+print K "kill -9 $Iam\n";
+close(K);
+
+@argos = @ARGV;
+$cwd = `pwd`;
+
+$site = $apDict{"site"};
+$memoryFail = $apDict{"memError"};
+$walltimeFail = $apDict{"wtError"};
+if($memoryFail eq ""){
+    $memoryFail = "Cannot allocate memory";
+}
+$qquery = $apDict{"qquery"};
+
+$dummyRun =0;
+$sequential =0;
+$i = 0;
+foreach $_ (@argos){
+    if($_ eq "-dummyRun"){
+        $dummyRun = 1;
+        undef $argos[$i];
+    } elsif ($_ eq "-sequential"){
+        $sequential = 1;
+        undef $argos[$i];
+    }
+    $i++;
+}
+
+#$tmFile = shift(@ARGV);
+#$datesToProcess  = shift(@ARGV);
+#$extraDim = shift(@ARGV);
+
+$tmFile = shift(@argos);
+$datesToProcess  = shift(@argos);
+$extraDim = shift(@argos);
+
+if($extraDim ne ""){
+    ($xdName, $xdFile) = split(/=/,$extraDim,2);
+    if(-e $xdFile){
+        @path = split(/\//,$xdFile);
+        $xDimName = pop(@path);
+        $xDimName = uc($xDimName);
+        open(X, "<$xdFile");
+        while(<X>){
+            chop;
+            if(/^#/ or /^$/){ next; }
+            push @gDim, "~$xdName=${_}";
+        }
+        $addXdim = 1;
+    } else {
+        die "File $xdName = $xdFile does not exist\n";
+    }
+} else {
+    push @gDim, "";
+    $addXdim = 0;
+}
+
+@pparts = split(/\//, $tmFile);
+$pipeName = pop(@pparts);
+print "PipeName = $pipeName\n";
+$basePath = $tmFile;
+$basePath =~ s/$pipeName//;
+if($basePath eq ""){
+    print "Using cwd\n";
+    $basePath = $cwd;
+}
+chop($basePath);
+
+#chop($basePath);
+print "BASEPATH: $basePath\n";
+%legos = &locateTBlegos($legoPath, $basePath);
+%pipeDefs = &getPipelineDefs($basePath);
+foreach $pnk (keys %pipeDefs){
+    print "PIPE-DEF: $pnk = $pipeDefs{$pnk}\n";
+}
+$projectName = $pipeDefs{"projectName"};
+
+$init = 0;
+if($otherargs eq "-init"){
+    $init = 1;
+}
+
+if(!-e $tmFile){
+    print "$basePath $pipeName\n";
+    die "$tmFile does not exist. Dying...\n";
+}
+
+#print "DTP: $datesToProcess\n";
+$_ = $datesToProcess;
+$date = $datesToProcess;
+
+# it seems that all the if block below should be replaced by the more modern
+# timex getListOfDates() routine, which can handle a number of other things.
+# The results for daily resolution should be exactly the same
+
+$isSpecial = $specialDates{$datesToProcess};
+print "isSpecial: $datesToProcess $isSpecial\n";
+
+
+#   Live demo code for the time package features
+#   $request = "last_month";
+#   @loda = &getSpecialDates($request);
+#   print "$request: @loda\n";
+#   exit;
+
+#if(/time/){
+if($isSpecial ne ""){
+    @LISTOFDATES = &getSpecialDates($datesToProcess);
+    ($utcAt0000, $nSecsFromMidnight) = &getUTCat00();
+    $uTracer = "_${nSecsFromMidnight}_$Iam";
+} else {
+    @LISTOFDATES = &getListOfDates($datesToProcess);
+    $uTracer = "";
+}
+print "Day-timestamp: $uTracer\n";
+
+
+$ts = &timestamp();
+open(H, ">>history");
+print H "$ts $me @ARGV\n";
+close(H);
+
+# 2020-01-08 ready to go, with the dates at hand, we just need to issue the
+# commands
+
+
+foreach $dateToProcess (@LISTOFDATES){
+    $command = "$fullTasksManager $tmFile $dateToProcess $extraDim";
+    if($dummyRun == 1){
+        print "dummy $command\n";
+    } else {
+        print ">> system $command\n";
+        system($command);
+    }
+}
+exit;
+
+
+
+sub timestamp(){
+    ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst) =
+                                                localtime(time);
+    $D_mon++;
+    $D_year += 1900;
+    $ts = sprintf("%02d/%02d/$D_year %02d:%02d:%02d", $D_mday, $D_mon, $D_hour, $D_min, $D_sec);
+}
+
+sub create_td_sample_and_readme(){
+    print <<"EXPLANATION";
+The file sample.td was created.
+
+Create as many task-description files as your processing needs. Once all
+those files are ready run $me -createStubs
+
+$me -createStubs will evaluate on the fly if you are missing some files
+(of tasks mentioned but not yet defined), and if so, it will create new .td files for you to complete.
+
+Once all the .td files are defined, the stubs will be created. You should redidrect in that case the output of ...
+EXPLANATION
+
+    &make_td_file("sample");
+
+}
+
+sub makeStubs(){
+    open (TDS, "ls *.td |");
+    while(<TDS>){
+        chop;
+        $module = $_;
+        if($_ eq "sample.td"){ next; }
+        push @tdfiles, $_;
+        $filesProvided{$_} = 1;
+        $defs = "d_$_";
+        open(T, "<$_");
+        while(<T>){
+            chop;
+            if(/^#/ or !/=/){
+                next;
+            }
+            ($key, $value) = split(/=/,$_,2);
+            $$defs{lc($key)} = $value;
+        }
+        close(T);
+        $_ = $$defs{"dependencies"};
+#        print "$module depends on $_\n";
+        @dependencies = split;
+        foreach $d (@dependencies){
+            $filesNeeded{"$d.td"} = 1;
+        }
+    }
+    close(TDS);
+
+    $pending = 0;
+    foreach $d (keys %filesNeeded){
+        if($filesProvided{$d} eq ""){
+            print "Missing dependency $d making it\n";
+            $pending++;
+            $d =~ s/\.td//;
+            &make_td_file($d);
+        }
+    }
+
+    if($pending > 0){
+        print "Edit the newly created files and try again.\n";
+        die "Only when every dependency is resolved, creation of the stubs will be done\n";
+    }
+
+    foreach $_ (@tdfiles){
+        $defs = "d_$_";  # this includes the ".td"
+        print "defs = $defs\n";
+
+        $module = $$defs{"name"};
+        $dep = $$defs{"dependencies"};
+        $trest = $$defs{"timerestrictions"};
+        if($trest eq ""){ $trest = "*/*/*/*"; }
+        $mmem = $$defs{"maxmemory"};
+        if($mmem eq ""){ $mmem = "9998"; }
+        $wall = $$defs{"maxwalltime"};
+        if($wall eq ""){ $wall = "1.1"; }
+        $lt = $$defs{"type"};
+        if($lt eq "GT_PROCESSING"){
+            $type = "proc";
+        } elsif($lt eq "GT_DATA_VALIDATION"){
+            $type = "dval";
+        } elsif($lt eq "FTP_DATA_ACQUISITION"){
+            $type = "aftp";
+        } elsif($lt eq "DATA_AVAILABILITY"){
+            $type = "isin";
+        } elsif($lt eq "OTHER"){
+            $type = "udef";
+        }
+        print "$module $trest $wall $mmem ${type}_$module $dep\n";
+        print "${type}_$module = runPipeline DATE $module\n\n";
+    }
+
+
+}
+
+sub make_td_file(){
+    my $name = @_[0];
+
+    open(S, ">${name}.td");
+    $today = localtime;
+    print S <<"SAMPLE_FILE";
+# This file is provided as an example of what a task-description file
+# should contain. 
+#
+#
+# Creation date: $today
+#
+# Not all fields are mandatory, some depend on the nature of the task defined.
+# All fields are defined as key/value pairs. Order is irrelevant.
+#
+
+NAME=$name
+
+# The field dependencies may be left empty or not appear at all, indicating
+# that the module can be run regardless of which tasks have been run
+# before, in other words, the module has no dependencies
+
+DEPENDENCIES=
+
+# The timeRestrictions field indicates whether this module needs to be run
+# after a certain time, or on a specific day of the month, a specific month
+# or specific week.
+# The syntax is : HHMM/dayOfMonth/month/dayOfWeek
+# */*/*/* indicates no restrictions at all
+# if left undefined, mode */*/*/* will be assumed
+TIMERESTRICTIONS=
+
+# The max-memory field indicates the maximum memory needed by this module
+# when run using the queue management system. Its value is ALWAYS in
+# megabytes.
+# No default value is assumed
+# Even small tasks may need several gigabytes of memory. I nominally use 9999
+MAXMEMORY=9999
+
+# The maximum execution time to request when running the process in
+# parallel expressed in decimal hours. The dedicated software will convert
+# this value to HH:MM:SS or HH:MM format according to the site. You don't
+# have to worry about this.
+# Default value of 1 may be well too short for some processors
+MAXWALLTIME=1
+
+
+# The type of processing module you want to define.
+# A few pre-defined types exist, but you can define it as "other" to define
+# things your way.
+# Each task type requires its own definitions
+# Currently available types: GT_PROCESSING, FTP_DATA_ACQUISITION,
+# GT_DATA_VALIDATION, DATA_AVAILABILITY, OTHER 
+#
+# Uncomment the correct one
+#TYPE=GT_PROCESSING
+#TYPE=GT_DATA_VALIDATION
+#TYPE=FTP_DATA_ACQUISITION
+#TYPE=DATA_AVAILABILITY
+#TYPE=OTHER
+
+
+# The following information is necessary if type == GT_PROCESSING:
+#----------------------------------------------------------------
+
+# PROCESSOR should point to an executable file, normally one of the GT
+# processors created from Fortran code.
+# Just write the processor name, its full path will be created/defined on
+# the fly
+# eg: processor=gt_mdb_processor_ss.exe
+# If you need another kind of processing piece,  define your type as OTHER
+PROCESSOR=
+
+
+# TEMPLATE_CONTROL_FILE is the file used to feed initial parameters to the
+# PROCESSOR. There is a set of these files in
+# $site_path/SOFTWARE/FORTRAN/INTERNAL_CODE/CTL_FILES_TEMPLATES/$site/
+# where $site_path and $site are site specific codes.
+# When only a file name or a relative path appears, it will be assumed to be
+# in one of these directories
+# A full path will use exactly that file
+TEMPLATE_CONTROL_FILE=control-file-name
+
+
+# The following information is necessary if type == GT_DATA_VALIDATION
+#----------------------------------------------------------------
+
+# the base path is something like /data/atsr/SEVIRI or /data/atsr/MODIS
+BASE_PATH=
+# The product code is for example : GT_MOG_2P, GT_MYG_3U, etc.
+PRODUCT_CODE=<valid GT product code>
+
+
+# The following information is necessary if type == FTP_DATA_ACQUISITION
+#----------------------------------------------------------------
+
+# These definitions are used by the generic ftp data retriever. The first 3
+# are obvious.
+FTP_SITE=
+USERNAME=
+PASSWORD=
+
+# refers to the path where to locate the data at the server level
+REMOTE_PATH=
+
+# refers to the path where to download the data into the local server
+LOCAL_PATH=
+
+# PROJECT is used to tell the downloader the kind of path structure (both
+# local and remote) to use during the transmission.
+# Currently valid projects are: ims4k modis, ostia, surfrad, uscrn. Others
+# will be defined in the future (like arm)
+PROJECT=
+
+# This is MODIS specifc and refers to the PRODUCT used in the ladsweb nasa
+# site, it could be any of a long list. We normally use:
+# MOD03 MOD11_L2 MOD021KM MOD35_L2
+# MYD03 MYD11_L2 MYD021KM MYD35_L2
+PRODUCT=
+
+# The following information is necessary if type == DATA_AVAILABILITY
+#----------------------------------------------------------------
+
+# the base path is something like /data/atsr/SEVIRI or /data/atsr/MODIS
+BASE_PATH=
+
+# The product code is for example : GT_MOG_2P, GT_MYG_3U, etc.
+PRODUCT_CODE=<valid GT product code>
+# In case the presence of a directory is not enough, and another piece of
+# software "marks" the directory as fully downloaded by creating a
+# tracer-file, this is the file name to use. eg: all-data-in
+TRACER_FILE=
+
+# A word on data downloading:
+# It is not possible to fully parallelise data downloading for extended
+# periods (missions for instance). It may be necessary to let a downloading
+# daemon to manage the downloads, and in that scenario, the daemon should
+# mark the data directories as "available for processing" in order to let
+# the task-manager to start processing as soon as data are available.
+
+# low volume downloads (like the ones in one-day-processing scenarios) can
+# be handled by the task-manager itself.
+# stub
+#
+
+SAMPLE_FILE
+close(S);
+}
+
+
