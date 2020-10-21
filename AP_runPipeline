@@ -66,6 +66,13 @@
 # Y2D year (last two digits)
 # MMM month     SMM   month paddded with a 0 if <10
 # DDD day       SDD   day paddded with a 0 if <10
+# RIGHT_NOW: The current date in the form: YYYY-MM-DDTHH:MM:SS
+# T_MINUS10M: T-10 minutes in the form: YYYY-MM-DDTHH:MM:SS
+# T_MINUS15M: T-15 minutes in the form: YYYY-MM-DDTHH:MM:SS
+# T_MINUS20M: T-20 minutes in the form: YYYY-MM-DDTHH:MM:SS
+# T_MINUS30M: T-30 minutes in the form: YYYY-MM-DDTHH:MM:SS
+# T_MINUS1H: T-1 hour in the form: YYYY-MM-DDTHH:MM:SS
+
 #
 # Notice that all substrings are 3 character ones.
 #
@@ -324,6 +331,7 @@
 # code.
 
 
+use POSIX qw(strftime);
 use Time::Local;
 # no strict, I need black magic
 # use strict;
@@ -425,6 +433,10 @@ $versyntax = 0;
 # this should go to the activeVars dictionary
 
 %activeVars = &loadExtendedTimeVariables();
+
+foreach $ak (sort keys %activeVars){
+    print STDERR "KEY-active: $ak = $activeVars{$ak}\n";
+}
 
 $CL_VARIABLES = "";
 foreach $_ (@ARGV){
@@ -815,6 +827,9 @@ $activeVars{"LMM"} = $lmonth;
 $activeVars{"SDD"} = $sday;
 $activeVars{"MMM"} = $imonth;
 $activeVars{"DDD"} = $iday;
+$epoch = time();
+$timeFormat = "%Y-%m-%dT%H:%M:%S";
+my $valVar;
 while(<P>){
     chop;
     if(/#/){ next; }
@@ -840,6 +855,10 @@ while(<P>){
         $val =~ s/DDD/$iday/g;
 #        $val =~ s/RUNID/$RUNID/g;
         $val =~ s/DAYOFYEAR/$DAYOFYEAR/g;
+        foreach $valVar (keys %activeVars){
+#            print "TEST: $val, $valVar, $activeVars{$valVar}\n";
+            $val =~ s/$valVar/$activeVars{$valVar}/g;
+       }
     }
     foreach $ciave (keys %usedKeys){
         $cont = $usedKeys{$ciave};

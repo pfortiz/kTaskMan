@@ -58,6 +58,8 @@ my $ppath = join('/', @parts);
 #print "I am $0 (a.k.a. $me)\n";
 #print "I live in $ppath\n";
 
+%specialDates = &getValidIntervals();
+
 if($#ARGV < 1){
 #    foreach $_ (keys %apDict){ print "A-P dictionary: $_ $apDict{$_}\n"; }
 #    print "Usage:  $me -init\n";
@@ -65,14 +67,19 @@ if($#ARGV < 1){
 #
 #   Note that extraDim as defined in the command line affects all tasks.
     print <<"USAGE";
-Usage:  $me pattern-file date-definitions
+Usage:  $me pattern-file date-definitions filter
 
 date-definitions take the form: YYYY-MM-DD[:YYYY-MM-DD] or other forms of
 date ranges. Use "test_dateString" to explore all possibilities
 
+filter can be:
+    first_of_month
+    last_of_month
+
 date-definitions can also be:
 USAGE
     foreach $k (sort keys %specialDates){
+#        print "FLL\t$k\n";
         if($specialDates{$k} == 1){ # only main words are listed here
             print "\t$k\n";
         }
@@ -123,6 +130,8 @@ if(!-e $tmFile){
     print "$basePath $pipeName\n";
     die "$tmFile does not exist. Dying...\n";
 }
+$isSpecial = $specialDates{$datesToProcess};
+print STDERR "# isSpecial: $datesToProcess $isSpecial\n";
 
 if($isSpecial ne ""){
     @LISTOFDATES = &getSpecialDates($datesToProcess);
@@ -134,8 +143,19 @@ if($isSpecial ne ""){
 }
 
 open(H, "<$tmFile");
+%definitions = {};
 while(<H>){
-    push @lines, $_;
+    if($_ eq "\n"){ next; }
+    if(/^DEF:/){
+        print STDERR "# a definition: $_";
+        @pd = split();
+        $word = $pd[1];
+        $value = $pd[2];
+        print STDERR "# b definition: $word=$value\n";
+        $definitions{$word} = $value;
+    } else {
+        push @lines, $_;
+    }
 }
 close(H);
 
@@ -145,17 +165,28 @@ close(H);
 
 
 foreach $dateDay (@LISTOFDATES){
-    print "$dateToProcess\n";
+    print "# Processing $dateDay\n";
     $dateDir = $dateDay;
     $dateDir =~ s/-/\//g;
+    $definitions{"DATEDIR"} = $dateDir;
+    $definitions{"DATEDAY"} = $dateDay;
+#    foreach $l (@lines){
+#        $s = $l;
+#        $s =~ s/DATEDAY/$dateDay/g;
+#        $s =~ s/DATEDIR/$dateDir/g;
+#        print $s;
+#    }
     foreach $l (@lines){
         $s = $l;
-        $s =~ s/DATEDAY/$dateDay/g;
-        $s =~ s/DATEDIR/$dateDir/g;
+        foreach $defi (keys %definitions){
+            $val  = $definitions{$defi};
+            $s =~ s/$defi/$val/g;
+#        $s =~ s/DATEDAY/$dateDay/g;
+#        $s =~ s/DATEDIR/$dateDir/g;
+        }
         print $s;
     }
 }
-exit;
 exit;
 
 $extraDim = shift(@argos);
@@ -214,8 +245,11 @@ $date = $datesToProcess;
 # timex getListOfDates() routine, which can handle a number of other things.
 # The results for daily resolution should be exactly the same
 
+
+
+
 $isSpecial = $specialDates{$datesToProcess};
-print "isSpecial: $datesToProcess $isSpecial\n";
+print "# isSpecial: $datesToProcess $isSpecial\n";
 
 
 #   Live demo code for the time package features

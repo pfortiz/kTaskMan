@@ -47,6 +47,10 @@ $dateString = shift(@ARGV);
 @lod = &getListOfDates($dateString);
 
 foreach $_ (@lod){
-    print "$_\n";
+    print "CD: $_\n";
 }
 
+@slod = &getSpecialDates($dateString);
+foreach $_ (@slod){
+    print "SD: $_\n";
+}

@@ -10,6 +10,8 @@ package ap_timex;
 use strict;
 use Time::Local;
 use Date::Parse;
+use POSIX qw(strftime);
+
 
 
 
@@ -38,11 +40,11 @@ my %validIntervals = qw(
     yesterday_LocalTime 1
     yesterday-local-time 2
     yesterday-universal-time 2
-    last_Month 1
-    last_Year 1
-    last
-    next_Month 2
-    next_Year 2
+    last_month 1
+    last_year 1
+    last 1
+    next_month 2
+    next_year 2
 );
 #    lastWeek 1
 
@@ -531,6 +533,16 @@ sub loadExtendedTimeVariables(){
 
     $variables{"EPOCH_NOW"} = $epoch;
     $variables{"EPOCH_LAST_MIDNIGHT"} = int($epoch - int($epoch % 86400));
+    my $timeFormat = "%Y-%m-%dT%H:%M:%S";
+    $variables{"RIGHT_NOW"} =  strftime $timeFormat, localtime($epoch);
+    $variables{"T_MINUS1M"} =  strftime $timeFormat, localtime($epoch - 60);
+    $variables{"T_MINUS5M"} =  strftime $timeFormat, localtime($epoch - 300);
+    $variables{"T_MINUS10M"} =  strftime $timeFormat, localtime($epoch -600);
+    $variables{"T_MINUS12M"} =  strftime $timeFormat, localtime($epoch -720);
+    $variables{"T_MINUS15M"} =  strftime $timeFormat, localtime($epoch-900);
+    $variables{"T_MINUS20M"} =  strftime $timeFormat, localtime($epoch-1200);
+    $variables{"T_MINUS30M"} =  strftime $timeFormat, localtime($epoch-1800);
+    $variables{"T_MINUS1H"} =  strftime $timeFormat, localtime($epoch-3600);
 
     %variables;
 }
@@ -600,8 +612,9 @@ sub getSpecialDates(){
         my $dstring = sprintf("%d-%02d-01:%d-%02d-%02d", $yy, $mes, $yy,$mes, $D_mday);
         return &getListOfDates($dstring);
     } else {
-        print "invalid time directive: $directive. Execution halted\n";
-        exit;
+#        print "invalid time directive: $directive. Ignoring\n";
+        return;
+#        exit;
     }
     $yy = $D_year + 1900;
     $mm = $D_mon + 1;
