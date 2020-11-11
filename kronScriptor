@@ -153,6 +153,8 @@ while(<H>){
         $value = $pd[2];
         print STDERR "# b definition: $word=$value\n";
         $definitions{$word} = $value;
+    } elsif(/^#/){
+        
     } else {
         push @lines, $_;
     }
@@ -168,8 +170,11 @@ foreach $dateDay (@LISTOFDATES){
     print "# Processing $dateDay\n";
     $dateDir = $dateDay;
     $dateDir =~ s/-/\//g;
+    $dateJour = $dateDay;
+    $dateJour =~ s/-/_/g;
     $definitions{"DATEDIR"} = $dateDir;
     $definitions{"DATEDAY"} = $dateDay;
+    $definitions{"UNDERDAY"} = $dateJour;
 #    foreach $l (@lines){
 #        $s = $l;
 #        $s =~ s/DATEDAY/$dateDay/g;
