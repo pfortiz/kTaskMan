@@ -79,7 +79,11 @@ sub getValidIntervals(){
 #
 sub getListOfDates(){
     my $lod = shift;
-#    print "List of dates argument: $lod\n";
+    my $filter = shift;
+    if($filter eq ""){
+        $filter = "evdy";
+    }
+    print "List of dates argument: $lod, $filter\n";
 #    my $_;
 #    my $_ = @_[0];
     my ($interval, $date, $unit, $theDateString, $unit);
@@ -137,7 +141,7 @@ sub getListOfDates(){
             }
             $lastDate = "${xy}-${xm}-${xd}";
 
-            @LISTOFDATES = &datesBetween($firstDate, $lastDate, "-");
+            @LISTOFDATES = &datesBetween($firstDate, $lastDate, "-", $filter);
 #            @LISTOFDATES = &datesBetween("$year-1-1", "$year-12-31", "-");
         }  else {
             die "Invalid date format. For a range specify:   date1:date2\n";
@@ -159,14 +163,15 @@ sub getListOfDates(){
         my $sday = sprintf("%02d", $iday);
         
         if($day eq "" and $month eq ""){
-            @LISTOFDATES = &datesBetween("$year-1-1", "$year-12-31", "-");
+            @LISTOFDATES = &datesBetween("$year-1-1", "$year-12-31", "-", $filter);
         } elsif ( $day eq "" and $month ne ""){
             my $DAYSINMONTH = &daysInMonth($year, $imonth);
-            @LISTOFDATES = &datesBetween("$year-$month-1", "$year-$month-$DAYSINMONTH", "-");
+            @LISTOFDATES = &datesBetween("$year-$month-1", "$year-$month-$DAYSINMONTH", "-", $filter);
         } else {
             push @LISTOFDATES, $_;
         }
     }
+    print "Temporary LOD: @LISTOFDATES\n";
     
     # at this point, when we already have a list of days, we apply other
     # criteria according to the unit chosen
@@ -365,7 +370,7 @@ sub listOfDates {
 # list all dates between two dates (inclusive)
 # arguments: initialDate, finalDate, separator
 sub datesBetween {
-    my ($initialDate, $finalDate, $sep) = @_;
+    my ($initialDate, $finalDate, $sep, $flter) = @_;
     my @domi;
     my @domj;
     my @domf;
@@ -456,10 +461,22 @@ sub datesBetween {
                 $fTag = $finDay{$key};
             }
             for($tagh = $iTag; $tagh <= $fTag; $tagh++){
-                $sdate = sprintf("%04d%s%02d%s%02d",$jahre, $sep, $mond, $sep, $tagh);
+                if($flter eq "evdy"){
+                    $sdate = sprintf("%04d%s%02d%s%02d",$jahre, $sep, $mond, $sep, $tagh);
 #                print "$jahre $mond $tagh\n";
 #                print "$sdate\n";
-                push @lodates, $sdate;
+                    push @lodates, $sdate;
+                } elsif($flter eq "ldom"){
+                    if($tagh == $fTag){
+                        $sdate = sprintf("%04d%s%02d%s%02d",$jahre, $sep, $mond, $sep, $tagh);
+                        push @lodates, $sdate;
+                    }
+                } elsif($flter == "fdom"){
+                    if($tagh == 1){
+                        $sdate = sprintf("%04d%s%02d%s%02d",$jahre, $sep, $mond, $sep, $tagh);
+                        push @lodates, $sdate;
+                    }
+                }
             }
         }
     }
@@ -550,6 +567,11 @@ sub loadExtendedTimeVariables(){
 # produce a list of dates based on a time directive
 sub getSpecialDates(){
     my $directive = shift;
+    my $filter = shift;
+    if($filter eq ""){
+        $filter = "evydy";
+    }
+    print "List of SpecialDates argument: $directive, $filter\n";
     my $initialTime = time; # time in unix time-stamp
     my $modifiedTime;
     my @lodates;
@@ -588,7 +610,7 @@ sub getSpecialDates(){
         $yy = $D_year + 1900 -1;
         my $dstring = "$yy-01-01:$yy-12-31";
         print "YEAR OF THE LORD: $D_year $dstring\n";
-        return &getListOfDates($dstring);
+        return &getListOfDates($dstring, $filter);
     } elsif($directive eq "last_month"){
         ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst) = gmtime($initialTime);
         $yy = $D_year + 1900 ;
@@ -599,18 +621,18 @@ sub getSpecialDates(){
         ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst) = gmtime($modifiedTime);
 #        print "MONTH OF BUDDHA: $D_year $D_mon $D_mday\n";
         my $dstring = sprintf("%d-%02d", $yy, $D_mon+1);
-        return &getListOfDates($dstring);
+        return &getListOfDates($dstring, $filter);
     } elsif($directive eq "this_year"){
         ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst) = gmtime($initialTime);
         $yy = $D_year + 1900 ;
         my $dstring = sprintf("%d-01-01:%d-%02d-%02d", $yy, $yy,$D_mon+1, $D_mday);
-        return &getListOfDates($dstring);
+        return &getListOfDates($dstring, $filter);
     } elsif($directive eq "this_month"){
         ($D_sec,$D_min,$D_hour,$D_mday,$D_mon,$D_year,$D_wday,$D_yday,$D_isdst) = gmtime($initialTime);
         $yy = $D_year + 1900 ;
         my $mes = $D_mon + 1;
         my $dstring = sprintf("%d-%02d-01:%d-%02d-%02d", $yy, $mes, $yy,$mes, $D_mday);
-        return &getListOfDates($dstring);
+        return &getListOfDates($dstring, $filter);
     } else {
 #        print "invalid time directive: $directive. Ignoring\n";
         return;

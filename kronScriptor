@@ -73,8 +73,8 @@ date-definitions take the form: YYYY-MM-DD[:YYYY-MM-DD] or other forms of
 date ranges. Use "test_dateString" to explore all possibilities
 
 filter can be:
-    first_of_month
-    last_of_month
+    fdom : first_of_month
+    ldom : last_of_month
 
 date-definitions can also be:
 USAGE
@@ -125,6 +125,10 @@ foreach $_ (@argos){
 
 $tmFile = shift(@argos);
 $datesToProcess  = shift(@argos);
+$filter = shift(@argos);
+if($filter eq ""){
+    $filter = "evdy";
+}
 
 if(!-e $tmFile){
     print "$basePath $pipeName\n";
@@ -134,11 +138,11 @@ $isSpecial = $specialDates{$datesToProcess};
 print STDERR "# isSpecial: $datesToProcess $isSpecial\n";
 
 if($isSpecial ne ""){
-    @LISTOFDATES = &getSpecialDates($datesToProcess);
+    @LISTOFDATES = &getSpecialDates($datesToProcess, $filter);
     ($utcAt0000, $nSecsFromMidnight) = &getUTCat00();
     $uTracer = "_${nSecsFromMidnight}_$Iam";
 } else {
-    @LISTOFDATES = &getListOfDates($datesToProcess);
+    @LISTOFDATES = &getListOfDates($datesToProcess, $filter);
     $uTracer = "";
 }
 

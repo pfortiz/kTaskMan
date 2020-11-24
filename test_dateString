@@ -43,14 +43,19 @@ if($#ARGV < 0){
 }
 
 $dateString = shift(@ARGV);
+$filter = shift(@ARGV);
+if($filter eq ""){
+    $filter = "evdy";
+}
 
-@lod = &getListOfDates($dateString);
+print "Arguments: $dateString $filter\n";
+@lod = &getListOfDates($dateString, $filter);
 
 foreach $_ (@lod){
     print "CD: $_\n";
 }
 
-@slod = &getSpecialDates($dateString);
+@slod = &getSpecialDates($dateString, $filter);
 foreach $_ (@slod){
     print "SD: $_\n";
 }
