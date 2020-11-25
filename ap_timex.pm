@@ -83,7 +83,7 @@ sub getListOfDates(){
     if($filter eq ""){
         $filter = "evdy";
     }
-    print "List of dates argument: $lod, $filter\n";
+#    print "List of dates argument: $lod, $filter\n";
 #    my $_;
 #    my $_ = @_[0];
     my ($interval, $date, $unit, $theDateString, $unit);
@@ -171,7 +171,7 @@ sub getListOfDates(){
             push @LISTOFDATES, $_;
         }
     }
-    print "Temporary LOD: @LISTOFDATES\n";
+#    print "Temporary LOD: @LISTOFDATES\n";
     
     # at this point, when we already have a list of days, we apply other
     # criteria according to the unit chosen
