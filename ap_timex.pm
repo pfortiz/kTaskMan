@@ -571,7 +571,7 @@ sub getSpecialDates(){
     if($filter eq ""){
         $filter = "evydy";
     }
-    print "List of SpecialDates argument: $directive, $filter\n";
+#    print "List of SpecialDates argument: $directive, $filter\n";
     my $initialTime = time; # time in unix time-stamp
     my $modifiedTime;
     my @lodates;
@@ -660,8 +660,8 @@ sub getUTCat00(){
 $D_mday);
 
     my $utc0000 =  str2time($midnight);
-    print "currentTime: $initialTime\n";
-    print "midnight: $midnight $utc0000\n";
+    print "# currentTime: $initialTime\n";
+    print "# midnight: $midnight $utc0000\n";
     my $nsec = int($initialTime - $utc0000);
 
     return $utc0000, $nsec;
