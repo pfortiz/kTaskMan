@@ -881,7 +881,7 @@ to experiment
 This step is long and tedious, unlike the previous one. There is a lot
 of knowledge which needs to go into a processing workflow.
 
-Once happy with your editing, you shoud run:
+Once happy with your editing, you should run:
 
 > AP_assistant $outFile
 

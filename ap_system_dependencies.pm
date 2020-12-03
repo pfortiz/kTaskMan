@@ -31,6 +31,7 @@ my @monthsInWords = qw(dummy January February March April May June July August S
 sub getFromRc(){
 #    my $file = @_[0];
     my $home = $ENV{HOME};
+    print "# HOME: $home\n";
     my $rcfile = "$home/.automatedProcessing";
 
     my %rcDict;
